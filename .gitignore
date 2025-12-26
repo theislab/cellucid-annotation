@@ -1,0 +1,4 @@
+# Python bytecode / cache (created when running scripts locally)
+__pycache__/
+*.py[cod]
+

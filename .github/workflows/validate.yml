@@ -1,0 +1,33 @@
+# Validate annotation repository inputs (no writes).
+#
+# This checks that:
+# - `annotations/config.json` has the expected structure/version
+# - each per-user file under `annotations/users/*.json` is well-formed and
+#   consistent (e.g. username matches `githubUserId`)
+# - optional author-only merges file (if present) is valid
+#
+# The goal is to fail fast on malformed JSON or schema violations before they
+# reach the Cellucid UI (or other tooling consuming this repo).
+name: Validate Annotation Files
+
+on:
+  push:
+    paths:
+      - "annotations/**"
+      - "scripts/**"
+  pull_request:
+    paths:
+      - "annotations/**"
+      - "scripts/**"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate user files + config
+        run: |
+          python scripts/validate_user_files.py

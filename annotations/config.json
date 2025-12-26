@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "supportedDatasets": [
+    {
+      "datasetId": "<YOUR_DATASET_ID>",
+      "name": "<YOUR_DATASET_NAME>",
+      "fieldsToAnnotate": ["<FIELD_1>", "<FIELD_2>"],
+      "annotatableSettings": {
+        "<FIELD_1>": { "minAnnotators": 1, "threshold": 0.5 }
+      },
+      "closedFields": []
+    }
+  ]
+}

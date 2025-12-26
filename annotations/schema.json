@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cellucid Community Annotation User File",
+  "type": "object",
+  "required": ["version", "username", "githubUserId", "updatedAt", "suggestions", "votes"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "username": { "type": "string", "minLength": 1 },
+    "githubUserId": { "type": "integer", "minimum": 1 },
+    "login": { "type": "string" },
+    "displayName": { "type": "string" },
+    "title": { "type": "string" },
+    "orcid": { "type": "string" },
+    "linkedin": { "type": "string", "pattern": "^[a-z0-9-]{3,120}$" },
+    "email": { "type": "string", "minLength": 3, "maxLength": 254, "pattern": "^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$" },
+    "updatedAt": { "type": "string" },
+    "datasets": {
+      "type": "object",
+      "description": "Informational per-user dataset access metadata (does not affect voting).",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["fieldsToAnnotate", "lastAccessedAt"],
+        "properties": {
+          "fieldsToAnnotate": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "lastAccessedAt": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "suggestions": {
+      "type": "object",
+      "description": "Map of bucket keys (<fieldKey>:<categoryLabel>) to suggestion arrays. If fieldKey contains ':', Cellucid encodes it as 'fk~<urlencoded>' (example: fk~celltype%3Acoarse:...).",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["id", "label", "proposedBy", "proposedAt"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "label": { "type": "string", "minLength": 1, "maxLength": 120 },
+            "ontologyId": { "type": ["string", "null"], "maxLength": 64 },
+            "evidence": { "type": ["string", "null"], "maxLength": 2000 },
+            "markers": {
+              "type": ["array", "null"],
+              "items": {
+                "oneOf": [
+                  { "type": "string" },
+                  {
+                    "type": "object",
+                    "required": ["gene"],
+                    "properties": {
+                      "gene": { "type": "string", "minLength": 1 },
+                      "logFC": { "type": "number" },
+                      "pval": { "type": "number" }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "proposedBy": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "proposedAt": { "type": "string" },
+            "editedAt": { "type": ["string", "null"] }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "votes": {
+      "type": "object",
+      "description": "Map of suggestion ids to vote direction.",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["up", "down"]
+      }
+    },
+    "comments": {
+      "type": "object",
+      "description": "Map of suggestion ids to user's comments on that suggestion.",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["id", "text", "authorUsername", "createdAt"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+            "authorUsername": { "type": "string", "minLength": 1 },
+            "createdAt": { "type": "string" },
+            "editedAt": { "type": ["string", "null"] }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "deletedSuggestions": {
+      "type": "object",
+      "description": "Map of bucket keys (<fieldKey>:<categoryLabel>) to suggestion ids deleted by the proposer. If fieldKey contains ':', Cellucid encodes it as 'fk~<urlencoded>' (example: fk~celltype%3Acoarse:...).",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "additionalProperties": false
+}
