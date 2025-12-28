@@ -12,7 +12,6 @@
     "title": { "type": "string" },
     "orcid": { "type": "string" },
     "linkedin": { "type": "string", "pattern": "^[a-z0-9-]{3,120}$" },
-    "email": { "type": "string", "minLength": 3, "maxLength": 254, "pattern": "^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$" },
     "updatedAt": { "type": "string" },
     "datasets": {
       "type": "object",

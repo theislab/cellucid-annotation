@@ -77,7 +77,7 @@ User files include identity metadata that Cellucid stores in each `annotations/u
 
 - `githubUserId` (stable GitHub numeric id; file identity is `ghid_<id>`)
 - `login` (GitHub username; informational only)
-- `displayName`, `title`, `orcid`, `linkedin`, `email` (optional; LinkedIn is handle-only)
+- `displayName`, `title`, `orcid`, `linkedin` (optional; LinkedIn is handle-only)
 - `datasets` (optional): informational record of dataset ids and annotatable fields the user has accessed
 
 ## Timestamps

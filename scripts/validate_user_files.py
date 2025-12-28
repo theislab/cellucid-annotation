@@ -227,15 +227,7 @@ def validate_user_file(doc: Any, path: pathlib.Path) -> List[str]:
     errs.append(f"{path}: login must be string|null")
 
   if "email" in doc:
-    if doc["email"] is None:
-      errs.append(f"{path}: email must be a valid email address if present")
-    elif not isinstance(doc["email"], str):
-      errs.append(f"{path}: email must be a valid email address if present")
-    else:
-      email = ensure_str(doc["email"])
-      if email:
-        if " " in email or "@" not in email or "." not in email.split("@", 1)[-1]:
-          errs.append(f"{path}: email must be a valid email address if present")
+    errs.append(f"{path}: email is not allowed (privacy)")
 
   if "linkedin" in doc and doc["linkedin"] is not None:
     if not isinstance(doc["linkedin"], str):
