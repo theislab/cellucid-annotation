@@ -1,17 +1,25 @@
 # Cellucid Community Annotations (Template)
 
-This folder is a starter template for a **GitHub annotation repository** that works with Cellucid's community annotation UI.
+This folder is the complete template for a **GitHub annotation repository** that works with Cellucid's community annotation UI.
 
 The core idea: each annotator writes their own file (no shared edits / no merge conflicts), and Cellucid compiles the merged consensus view **in the browser** on Pull.
 
 ## Layout
 
-- `annotations/schema.json` - JSON schema reference for user vote files
+- `annotations/schema.json` - exact JSON schema for user vote files
+- `annotations/config.schema.json` - exact JSON schema for repository configuration
 - `annotations/config.json` - Dataset binding + author-controlled annotatable fields + per-field consensus settings
 - `annotations/users/*.json` - Per-user suggestions & votes (conflict-free collaboration)
+- `annotations/moderation/merges.schema.json` - exact JSON schema for moderation merges
 - `annotations/moderation/merges.json` - Optional author-only merges (maintainers/admins)
 - `scripts/validate_user_files.py` - Validation script (run by CI and usable locally)
 - `.github/workflows/validate.yml` - GitHub Actions workflow (validation)
+
+The three schemas declare fixed current identities:
+
+- `https://cellucid.com/contracts/community-annotation/user-v1.schema.json`
+- `https://cellucid.com/contracts/community-annotation/config-v1.schema.json`
+- `https://cellucid.com/contracts/community-annotation/merges-v1.schema.json`
 
 ## How collaboration works
 
@@ -21,16 +29,32 @@ This template is designed for many annotators to collaborate safely:
 - Authors (maintain/admin) can optionally curate `annotations/moderation/merges.json`.
 - In Cellucid, **Pull** downloads the raw files under `annotations/users/` and `annotations/moderation/` (SHA-based: downloads only what changed) and compiles a merged view locally.
   - The browser cache is scoped by **datasetId + repo + branch + GitHub user.id** (multi-user + multi-project safe).
-- Cellucid can export a locally-built `consensus.json` snapshot from the sidebar (useful for downstream tooling); it is not committed back to the repo.
+- Cellucid can export a locally-built `cellucid-consensus.json` snapshot from
+  the sidebar (useful for downstream tooling); it is not committed back to the
+  repo.
 
 ## Usage (quick start)
 
 1. Create a new GitHub repo from this template folder contents.
 2. Configure `annotations/config.json` to match your dataset id(s) and annotatable field(s).
+   - The checked-in `example-dataset-id` / `cell_type` / `batch` entry is a
+     valid worked example; replace it with the exact identifiers in your
+     dataset.
    - `supportedDatasets[]` may include multiple dataset ids.
-   - Authors can also update `fieldsToAnnotate`, `annotatableSettings` (`minAnnotators`, `threshold`), and `closedFields` via the Cellucid UI (Publish writes back to `annotations/config.json`).
+   - Every dataset entry requires `datasetId`, `name`, `fieldsToAnnotate`, `annotatableSettings`, and `closedFields`.
+   - Every field in `fieldsToAnnotate` has exactly one `annotatableSettings` entry with both `minAnnotators` and `threshold`; missing and extra settings are invalid.
+   - `fieldsToAnnotate` must contain at least one field. `closedFields` may be
+     empty, but every listed closed field must also appear in
+     `fieldsToAnnotate`.
+   - Contract strings are exact, nonblank, bounded, and cannot have leading or
+     trailing whitespace.
+   - Authors can update these fields via the Cellucid UI (Publish writes back to `annotations/config.json`).
 3. Each collaborator writes only their own file under `annotations/users/`.
-4. In Cellucid, connect via **GitHub App sign-in** (no token paste). Users with write access publish directly; others publish via fork + Pull Request.
+4. In Cellucid, connect via **GitHub App sign-in** (no token paste). Cellucid
+   selects one route before mutation: `direct` for a user with source write
+   permission, or `fork-pull-request` for a contributor when the source permits
+   forking. A failed selected route is terminal and is never changed into the
+   other route.
 
 ## CI / GitHub Actions
 
@@ -51,12 +75,38 @@ If this fails, fix the JSON files in `annotations/` (do not edit any derived/exp
 
 ## Local development / debugging
 
-You can run the same checks locally (Python 3.10+ recommended; CI uses Python 3.11):
+You can run the same checks locally (Python 3.10+ is required; CI uses Python 3.11):
 
 ```bash
-# Validate inputs (what humans/clients write)
+# Run the contract regression suite
+python -m unittest discover -s tests -v
+
+# Validate every input (what humans/clients write)
 python scripts/validate_user_files.py
 ```
+
+The validator reads the checked-in schemas directly, rejects unknown fields,
+wrong JSON types, duplicate JSON keys, and malformed JSON, and inspects every
+array item. A user document is accepted only when its filename is exactly
+`ghid_<githubUserId>.json` and its `username` is the same `ghid_<githubUserId>`
+identity.
+
+Validation never coerces, truncates, migrates, skips, or repairs input. The
+browser applies the same rule before caching or compiling a Pull, so one invalid
+document fails the operation without producing a partial merged view.
+
+Files must be UTF-8 JSON without a byte-order mark. User JSON files must be
+direct children of `annotations/users/`; case variants and nested JSON paths are
+invalid. The only non-JSON entry permitted there is the checked-in `.gitkeep`,
+whose complete content is one LF byte so an empty user inventory remains
+representable in Git. Suggestion ids must remain unambiguous across the
+repository: one id cannot identify suggestions owned by different users or
+stored in different buckets.
+
+Cellucid also rejects alternate Git blob encodings and truncated Git tree
+responses. Its raw-file cache requires IndexedDB and localStorage; an
+unavailable, corrupt, or failed storage boundary is reported as an error instead
+of being replaced with an in-memory cache.
 
 ## Author-only merges (optional)
 
@@ -77,11 +127,17 @@ User files include identity metadata that Cellucid stores in each `annotations/u
 
 - `githubUserId` (stable GitHub numeric id; file identity is `ghid_<id>`)
 - `login` (GitHub username; informational only)
-- `displayName`, `title`, `orcid`, `linkedin` (optional; LinkedIn is handle-only)
+- `displayName`, `title`, `orcid`, `linkedin` (optional; ORCID uses the exact
+  checksum-valid `0000-0000-0000-0000` representation and LinkedIn uses an
+  exact lowercase handle without `@` or a URL)
 - `datasets` (optional): informational record of dataset ids and annotatable fields the user has accessed
 
 ## Timestamps
 
+- Every timestamp is UTC and must use exactly
+  `YYYY-MM-DDTHH:MM:SSZ` or `YYYY-MM-DDTHH:MM:SS.sssZ`. Calendar dates
+  and clock values must be real; offsets, lowercase `z`, and other fractional
+  precision are rejected.
 - Suggestions may include `editedAt` when the proposer edits a suggestion (e.g. label/evidence/ontology id/markers).
 - Comments include `editedAt` when a comment is edited.
 
@@ -93,7 +149,8 @@ This template does not commit a merged consensus artifact. Instead:
 
 - Cellucid pulls the raw per-user files (`annotations/users/*.json`) and optional merges file (`annotations/moderation/merges.json`)
 - Cellucid compiles the merged view locally in the browser on Pull
-- You can download a compiled `consensus.json` snapshot from the sidebar when needed
+- You can download a compiled `cellucid-consensus.json` snapshot from the
+  sidebar when needed
 
 ### “Why did Pull download lots of files the first time?”
 

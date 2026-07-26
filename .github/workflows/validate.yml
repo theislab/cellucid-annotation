@@ -13,21 +13,32 @@ name: Validate Annotation Files
 on:
   push:
     paths:
+      - ".github/workflows/validate.yml"
       - "annotations/**"
       - "scripts/**"
+      - "tests/**"
   pull_request:
     paths:
+      - ".github/workflows/validate.yml"
       - "annotations/**"
       - "scripts/**"
+      - "tests/**"
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.10", "3.12", "3.14"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
-      - name: Validate user files + config
-        run: |
-          python scripts/validate_user_files.py
+          python-version: ${{ matrix.python }}
+      - name: Test exact annotation contracts
+        run: python -m unittest discover -s tests -v
+      - name: Validate repository inputs
+        run: python scripts/validate_user_files.py
