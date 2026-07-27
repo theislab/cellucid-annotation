@@ -1,10 +1,23 @@
-# Cellucid Community Annotations (Template)
+# Cellucid community annotation repository
 
-This folder is the complete template for a **GitHub annotation repository** that works with Cellucid's community annotation UI.
+This repository is the validated reference layout for a
+**GitHub annotation repository** used by
+[Cellucid](https://github.com/theislab/cellucid). It gives a research group one
+shared place for label suggestions, votes, discussion, consensus settings, and
+optional moderation—without putting multiple annotators into the same file.
 
-The core idea: each annotator writes their own file (no shared edits / no merge conflicts), and Cellucid compiles the merged consensus view **in the browser** on Pull.
+The core idea is simple: Cellucid writes one file per GitHub user, so ordinary
+annotation work does not create shared-file merge conflicts. On **Pull**,
+Cellucid validates the repository and compiles the merged consensus view in the
+browser.
 
-## Layout
+This repository stores annotation records only. Keep embeddings, expression
+matrices, and prepared Cellucid payloads in a separate dataset source. See the
+[complete community annotation guide](https://cellucid.readthedocs.io/en/latest/user_guide/web_app/j_community_annotation/index.html)
+for the author walkthrough, annotator walkthrough, UI reference, screenshots,
+and troubleshooting.
+
+## Contract and layout
 
 - `annotations/schema.json` - exact JSON schema for user vote files
 - `annotations/config.schema.json` - exact JSON schema for repository configuration
@@ -14,6 +27,10 @@ The core idea: each annotator writes their own file (no shared edits / no merge 
 - `annotations/moderation/merges.json` - Optional author-only merges (maintainers/admins)
 - `scripts/validate_user_files.py` - Validation script (run by CI and usable locally)
 - `.github/workflows/validate.yml` - GitHub Actions workflow (validation)
+
+Only files declared by this layout belong in the annotation contract. A
+compiled consensus file is deliberately not committed: it is a view derived
+from the validated user files, configuration, and moderation merges.
 
 The three schemas declare fixed current identities:
 
@@ -26,16 +43,47 @@ The three schemas declare fixed current identities:
 This template is designed for many annotators to collaborate safely:
 
 - Each person contributes only `annotations/users/ghid_<id>.json`.
-- Authors (maintain/admin) can optionally curate `annotations/moderation/merges.json`.
-- In Cellucid, **Pull** downloads the raw files under `annotations/users/` and `annotations/moderation/` (SHA-based: downloads only what changed) and compiles a merged view locally.
+- Authors with `maintain` or `admin` repository permission can optionally
+  curate `annotations/moderation/merges.json`.
+- In Cellucid, **Pull** downloads the raw files under `annotations/users/` and
+  `annotations/moderation/` (SHA-based: downloads only what changed) and
+  compiles a merged view locally.
   - The browser cache is scoped by **datasetId + repo + branch + GitHub user.id** (multi-user + multi-project safe).
 - Cellucid can export a locally-built `cellucid-consensus.json` snapshot from
   the sidebar (useful for downstream tooling); it is not committed back to the
   repo.
 
-## Usage (quick start)
+Local edits are saved in the browser first. **Publish** sends the current
+user's file to GitHub and, for an author changing round settings, also updates
+`annotations/config.json`. Other collaborators see published work after their
+next Pull. GitHub remains the shared source of truth; browser state is a local
+working copy.
 
-1. Create a new GitHub repo from this template folder contents.
+### Consensus model
+
+Annotation is scoped to one dataset id, one categorical observation field, and
+one category within that field. That combination is a **bucket**. Users propose
+labels inside a bucket and cast `up` or `down` votes on those suggestions.
+
+For each bucket, Cellucid counts unique users who cast any vote, computes the
+leading suggestion's net votes (`up - down`), and reports
+`confidence = net votes / unique voters`.
+
+- **Pending**: fewer unique voters than the field's `minAnnotators`
+- **Consensus**: the leader is not tied and its confidence meets or exceeds the
+  field's `threshold`
+- **Disputed**: every other result, including a tie
+
+The exact settings are owned per field in `annotations/config.json`.
+`minAnnotators` is an integer from 0 through 50, and `threshold` is a number
+from -1 through 1. Choose these values before recruiting annotators and record
+them when exporting a result; changing them can change the derived status
+without changing anyone's votes.
+
+## Set up an annotation round
+
+1. Create a new GitHub repository and copy this repository's checked-in
+   template files into its root.
 2. Configure `annotations/config.json` to match your dataset id(s) and annotatable field(s).
    - The checked-in `example-dataset-id` / `cell_type` / `batch` entry is a
      valid worked example; replace it with the exact identifiers in your
@@ -49,12 +97,23 @@ This template is designed for many annotators to collaborate safely:
    - Contract strings are exact, nonblank, bounded, and cannot have leading or
      trailing whitespace.
    - Authors can update these fields via the Cellucid UI (Publish writes back to `annotations/config.json`).
-3. Each collaborator writes only their own file under `annotations/users/`.
-4. In Cellucid, connect via **GitHub App sign-in** (no token paste). Cellucid
+3. Run the local validator before connecting the repository:
+   `python scripts/validate_user_files.py`.
+4. Install the Cellucid GitHub App for the repository owner and grant it access
+   to this repository.
+5. Load the matching dataset in Cellucid, open **Community Annotation**, and
+   connect via **GitHub App sign-in** (no token paste). Cellucid
    selects one route before mutation: `direct` for a user with source write
    permission, or `fork-pull-request` for a contributor when the source permits
    forking. A failed selected route is terminal and is never changed into the
    other route.
+6. Pull once before annotating. Each collaborator then works through Cellucid;
+   the app publishes only that collaborator's `ghid_<id>.json`.
+
+The loaded dataset's exact id must occur in `supportedDatasets`. A mismatch is
+blocked rather than attached to a similarly named dataset. Authors may add the
+current dataset through the UI and Publish the resulting configuration;
+annotators cannot bypass the binding.
 
 ## CI / GitHub Actions
 
@@ -64,7 +123,8 @@ This template includes one workflow:
 
 File: `.github/workflows/validate.yml`
 
-- Runs on pushes and pull requests that touch `annotations/**` or `scripts/**`.
+- Runs on pushes and pull requests that touch the README or any checked
+  contract, workflow, validator, or test surface.
 - Validates human/client-authored inputs:
   - `annotations/config.json`
   - `annotations/users/*.json`
@@ -75,7 +135,8 @@ If this fails, fix the JSON files in `annotations/` (do not edit any derived/exp
 
 ## Local development / debugging
 
-You can run the same checks locally (Python 3.10+ is required; CI uses Python 3.11):
+You can run the same checks locally (Python 3.10+ is required; CI uses Python
+3.10, 3.12, and 3.14):
 
 ```bash
 # Run the contract regression suite
@@ -132,6 +193,27 @@ User files include identity metadata that Cellucid stores in each `annotations/u
   exact lowercase handle without `@` or a URL)
 - `datasets` (optional): informational record of dataset ids and annotatable fields the user has accessed
 
+## Privacy and repository hygiene
+
+An annotation repository can contain scientific discussion and user profile
+metadata. Treat its GitHub visibility as the visibility of that content:
+anything in a public repository is public.
+
+- Do not store expression matrices, embeddings, clinical identifiers, source
+  data, access tokens, private keys, or other secrets here.
+- Use stable GitHub numeric identities (`ghid_<id>`) for ownership; `login` is
+  informational because a GitHub username can change.
+- Keep evidence useful but non-identifying. Link to public references when
+  appropriate instead of copying sensitive source material into a suggestion.
+- Review `displayName`, `title`, `orcid`, and `linkedin` before publishing;
+  these optional fields become part of the user's GitHub file.
+- Keep generated consensus downloads outside the repository unless a separate
+  downstream workflow intentionally versions a frozen result.
+
+Cellucid's OAuth token is not part of this file format. The web app keeps it in
+`sessionStorage` (cleared when the tab closes) and never asks users to paste a
+personal access token into the repository.
+
 ## Timestamps
 
 - Every timestamp is UTC and must use exactly
@@ -174,3 +256,24 @@ If the currently loaded dataset id is not listed in `annotations/config.json` fo
 
 - Annotators are blocked (no Pull / no viewing annotations).
 - Authors can connect anyway and Publish updated settings; this adds/updates the matching `supportedDatasets[]` entry in `annotations/config.json`.
+
+### “Why does Publish create a pull request?”
+
+The selected publishing route depends on repository permission:
+
+- A user with source write permission publishes directly.
+- A contributor uses a fork and pull request when the source permits forking.
+
+The route is selected before any write. If it fails, Cellucid reports that
+failure instead of silently attempting the other route. Merge the pull request,
+then ask collaborators to Pull again.
+
+## Documentation and ecosystem
+
+- [Community annotation guide](https://cellucid.readthedocs.io/en/latest/user_guide/web_app/j_community_annotation/index.html)
+- [Live Cellucid application](https://www.cellucid.com)
+- [Web viewer source](https://github.com/theislab/cellucid)
+- [Python package](https://github.com/theislab/cellucid-python)
+- [R package](https://github.com/theislab/cellucid-r)
+- [Official public demo datasets](https://github.com/theislab/cellucid-datasets)
+- [Custom dataset repository examples](https://github.com/theislab/cellucid-demo-custom-datasets)

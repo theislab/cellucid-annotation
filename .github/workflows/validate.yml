@@ -15,6 +15,7 @@ on:
     paths:
       - ".gitattributes"
       - ".github/workflows/validate.yml"
+      - "README.md"
       - "annotations/**"
       - "scripts/**"
       - "tests/**"
@@ -22,6 +23,7 @@ on:
     paths:
       - ".gitattributes"
       - ".github/workflows/validate.yml"
+      - "README.md"
       - "annotations/**"
       - "scripts/**"
       - "tests/**"

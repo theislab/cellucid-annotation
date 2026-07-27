@@ -154,6 +154,21 @@ class ExactContractTests(unittest.TestCase):
                     )
         self.assertEqual(violations, [])
 
+    def test_readme_cross_references_the_current_cellucid_ecosystem(self) -> None:
+        readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
+        for url in (
+            (
+                "https://cellucid.readthedocs.io/en/latest/user_guide/web_app/"
+                "j_community_annotation/index.html"
+            ),
+            "https://github.com/theislab/cellucid",
+            "https://github.com/theislab/cellucid-python",
+            "https://github.com/theislab/cellucid-r",
+            "https://github.com/theislab/cellucid-datasets",
+            "https://github.com/theislab/cellucid-demo-custom-datasets",
+        ):
+            self.assertIn(url, readme)
+
     def test_repository_checkout_preserves_the_exact_lf_sentinel(self) -> None:
         result = subprocess.run(
             [
@@ -182,6 +197,10 @@ class ExactContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8").splitlines()
         self.assertEqual(
             sum(line.strip() == '- ".gitattributes"' for line in workflow_lines),
+            2,
+        )
+        self.assertEqual(
+            sum(line.strip() == '- "README.md"' for line in workflow_lines),
             2,
         )
 
