@@ -154,6 +154,37 @@ class ExactContractTests(unittest.TestCase):
                     )
         self.assertEqual(violations, [])
 
+    def test_repository_checkout_preserves_the_exact_lf_sentinel(self) -> None:
+        result = subprocess.run(
+            [
+                "git",
+                "check-attr",
+                "text",
+                "eol",
+                "--",
+                "annotations/users/.gitkeep",
+            ],
+            cwd=REPOSITORY_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.splitlines(),
+            [
+                "annotations/users/.gitkeep: text: set",
+                "annotations/users/.gitkeep: eol: lf",
+            ],
+        )
+        workflow_lines = (
+            REPOSITORY_ROOT / ".github" / "workflows" / "validate.yml"
+        ).read_text(encoding="utf-8").splitlines()
+        self.assertEqual(
+            sum(line.strip() == '- ".gitattributes"' for line in workflow_lines),
+            2,
+        )
+
     def user_errors(self, doc: Any, filename: str = "ghid_42.json") -> list[str]:
         return validator.validate_user_file(
             doc,

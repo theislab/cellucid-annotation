@@ -13,12 +13,14 @@ name: Validate Annotation Files
 on:
   push:
     paths:
+      - ".gitattributes"
       - ".github/workflows/validate.yml"
       - "annotations/**"
       - "scripts/**"
       - "tests/**"
   pull_request:
     paths:
+      - ".gitattributes"
       - ".github/workflows/validate.yml"
       - "annotations/**"
       - "scripts/**"
