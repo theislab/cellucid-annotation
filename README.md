@@ -96,6 +96,12 @@ without changing anyone's votes.
      `fieldsToAnnotate`.
    - Contract strings are exact, nonblank, bounded, and cannot have leading or
      trailing whitespace.
+   - Cellucid reserves one colon-free field-key shape for bucket encoding: a
+     key that starts with exact lowercase `fk~` and contains `%3A` or `%3a` is
+     invalid. Keys such as `fk~foo`, `plain%3Afoo`, and `fk~foo%253Abar`
+     remain valid, as do field keys that actually contain `:`. This narrow
+     reservation keeps colon-bearing field keys distinct from their encoded
+     bucket representation.
    - Authors can update these fields via the Cellucid UI (Publish writes back to `annotations/config.json`).
 3. Run the local validator before connecting the repository:
    `python scripts/validate_user_files.py`.
@@ -150,7 +156,8 @@ The validator reads the checked-in schemas directly, rejects unknown fields,
 wrong JSON types, duplicate JSON keys, and malformed JSON, and inspects every
 array item. A user document is accepted only when its filename is exactly
 `ghid_<githubUserId>.json` and its `username` is the same `ghid_<githubUserId>`
-identity.
+identity. Suggestion ids cannot contain `:` because Cellucid reserves that
+character as the delimiter between a bucket key and a suggestion id.
 
 Validation never coerces, truncates, migrates, skips, or repairs input. The
 browser applies the same rule before caching or compiling a Pull, so one invalid
@@ -162,7 +169,16 @@ invalid. The only non-JSON entry permitted there is the checked-in `.gitkeep`,
 whose complete content is one LF byte so an empty user inventory remains
 representable in Git. Suggestion ids must remain unambiguous across the
 repository: one id cannot identify suggestions owned by different users or
-stored in different buckets.
+stored in different buckets, and `:` is not permitted in an id.
+
+Every active `annotations/config.json`, `annotations/users/ghid_<id>.json`, and
+optional `annotations/moderation/merges.json` file must be at most **1,000,000
+UTF-8 bytes**. The validator rejects a larger file before JSON parsing, matching
+the boundary for the GitHub
+[repository Contents API](https://docs.github.com/en/rest/repos/contents)
+complete JSON/base64 contract. Archive historical material outside
+`annotations/` and keep each active document complete; files are never
+truncated.
 
 Cellucid also rejects alternate Git blob encodings and truncated Git tree
 responses. Its raw-file cache requires IndexedDB and localStorage; an
@@ -176,6 +192,8 @@ If you maintain the repo and want to "merge" suggestions (e.g. two different lab
 - This file is optional and typically restricted to maintainers/admins.
 - Merges create a mapping from `fromSuggestionId` → `intoSuggestionId` within the same bucket.
 - Bucket key format: `<fieldKey>:<categoryLabel>`. If `fieldKey` contains `:`, Cellucid encodes it as `fk~<urlencoded>` (example: `fk~celltype%3Acoarse:...`).
+- Category labels may contain `:`; suggestion ids may not, so the complete
+  bucket/id identity remains unambiguous.
 - Cellucid applies this mapping at runtime when computing bundle vote totals and consensus.
 - In the Cellucid UI, authors can add merges by dragging a suggestion card onto another.
   - The merge dialog includes an optional note.

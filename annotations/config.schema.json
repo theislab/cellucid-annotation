@@ -20,19 +20,30 @@
           "closedFields"
         ],
         "properties": {
-          "datasetId": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
-          "name": { "type": "string", "minLength": 1, "maxLength": 120, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
+          "datasetId": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 120, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
           "fieldsToAnnotate": {
             "type": "array",
             "minItems": 1,
             "maxItems": 200,
-            "items": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "description": "Exact observation field key. A colon-free key must not use the reserved lowercase fk~...%3A encoding shape.",
+              "pattern": "^(?!fk~[^:]*%3[Aa][^:]*$(?![\\s\\S]))\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])"
+            },
             "uniqueItems": true
           },
           "annotatableSettings": {
             "type": "object",
             "maxProperties": 200,
-            "propertyNames": { "minLength": 1, "maxLength": 256, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
+            "propertyNames": {
+              "minLength": 1,
+              "maxLength": 256,
+              "description": "Exact observation field key. A colon-free key must not use the reserved lowercase fk~...%3A encoding shape.",
+              "pattern": "^(?!fk~[^:]*%3[Aa][^:]*$(?![\\s\\S]))\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])"
+            },
             "additionalProperties": {
               "type": "object",
               "required": ["minAnnotators", "threshold"],
@@ -54,7 +65,13 @@
           "closedFields": {
             "type": "array",
             "maxItems": 200,
-            "items": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "description": "Exact observation field key. A colon-free key must not use the reserved lowercase fk~...%3A encoding shape.",
+              "pattern": "^(?!fk~[^:]*%3[Aa][^:]*$(?![\\s\\S]))\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])"
+            },
             "uniqueItems": true
           }
         },

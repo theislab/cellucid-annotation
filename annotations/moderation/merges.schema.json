@@ -6,7 +6,7 @@
   "required": ["version", "updatedAt", "merges"],
   "properties": {
     "version": { "type": "integer", "const": 1 },
-    "updatedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$", "format": "date-time" },
+    "updatedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
     "merges": {
       "type": "array",
       "maxItems": 5000,
@@ -14,13 +14,13 @@
         "type": "object",
         "required": ["bucket", "fromSuggestionId", "intoSuggestionId", "by", "at"],
         "properties": {
-          "bucket": { "type": "string", "minLength": 3, "maxLength": 1024, "pattern": "^[^:\\s](?:[^:]*[^:\\s])?:\\S(?:[\\s\\S]*\\S)?$" },
-          "fromSuggestionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
-          "intoSuggestionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
-          "by": { "type": "string", "minLength": 6, "maxLength": 64, "pattern": "^ghid_[1-9][0-9]*$" },
-          "at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$", "format": "date-time" },
-          "note": { "type": ["string", "null"], "minLength": 1, "maxLength": 512, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
-          "editedAt": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$", "format": "date-time" }
+          "bucket": { "type": "string", "minLength": 3, "maxLength": 1024, "pattern": "^[^:\\s](?:[^:]*[^:\\s])?:\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+          "fromSuggestionId": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Source suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },
+          "intoSuggestionId": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Target suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },
+          "by": { "type": "string", "minLength": 6, "maxLength": 64, "pattern": "^ghid_[1-9][0-9]*$(?![\\s\\S])" },
+          "at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
+          "note": { "type": ["string", "null"], "minLength": 1, "maxLength": 512, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+          "editedAt": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" }
         },
         "additionalProperties": false
       }

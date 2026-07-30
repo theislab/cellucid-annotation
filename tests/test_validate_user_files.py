@@ -133,10 +133,7 @@ class ExactContractTests(unittest.TestCase):
             REPOSITORY_ROOT / "annotations" / "schema.json",
             REPOSITORY_ROOT / "annotations" / "config.schema.json",
             REPOSITORY_ROOT / "annotations" / "config.json",
-            REPOSITORY_ROOT
-            / "annotations"
-            / "moderation"
-            / "merges.schema.json",
+            REPOSITORY_ROOT / "annotations" / "moderation" / "merges.schema.json",
             *sorted((REPOSITORY_ROOT / "scripts").glob("*.py")),
             *sorted((REPOSITORY_ROOT / ".github" / "workflows").glob("*.yml")),
             *sorted((REPOSITORY_ROOT / ".github" / "workflows").glob("*.yaml")),
@@ -169,6 +166,22 @@ class ExactContractTests(unittest.TestCase):
         ):
             self.assertIn(url, readme)
 
+    def test_readme_documents_the_exact_identity_reservations(self) -> None:
+        readme = " ".join(
+            (REPOSITORY_ROOT / "README.md")
+            .read_text(encoding="utf-8")
+            .split()
+        )
+        self.assertIn(
+            "starts with exact lowercase `fk~` and contains `%3A` or `%3a`",
+            readme,
+        )
+        self.assertIn(
+            "Suggestion ids cannot contain `:` because Cellucid reserves that "
+            "character as the delimiter",
+            readme,
+        )
+
     def test_repository_checkout_preserves_the_exact_lf_sentinel(self) -> None:
         result = subprocess.run(
             [
@@ -193,8 +206,10 @@ class ExactContractTests(unittest.TestCase):
             ],
         )
         workflow_lines = (
-            REPOSITORY_ROOT / ".github" / "workflows" / "validate.yml"
-        ).read_text(encoding="utf-8").splitlines()
+            (REPOSITORY_ROOT / ".github" / "workflows" / "validate.yml")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
         self.assertEqual(
             sum(line.strip() == '- ".gitattributes"' for line in workflow_lines),
             2,
@@ -211,6 +226,104 @@ class ExactContractTests(unittest.TestCase):
             self.user_schema,
         )
 
+    def schema_pattern_slots(self) -> tuple[tuple[str, dict[str, Any]], ...]:
+        slots: list[tuple[str, dict[str, Any]]] = []
+
+        def visit(value: Any, location: tuple[str, ...]) -> None:
+            if isinstance(value, dict):
+                if "pattern" in value:
+                    slots.append((".".join(location), value))
+                for key, child in value.items():
+                    visit(child, (*location, str(key)))
+            elif isinstance(value, list):
+                for index, child in enumerate(value):
+                    visit(child, (*location, str(index)))
+
+        for name, schema in (
+            ("config", self.config_schema),
+            ("user", self.user_schema),
+            ("merges", self.merges_schema),
+        ):
+            visit(schema, (name,))
+        return tuple(slots)
+
+    def field_key_surface_errors(self, surface: str, value: str) -> list[str]:
+        if surface == "datasets.fieldsToAnnotate":
+            document = valid_user()
+            document["datasets"]["synthetic"]["fieldsToAnnotate"] = [value]
+            return self.user_errors(document)
+
+        document = valid_config()
+        dataset = document["supportedDatasets"][0]
+        if surface == "fieldsToAnnotate":
+            dataset["fieldsToAnnotate"] = [value]
+        elif surface == "annotatableSettings":
+            dataset["annotatableSettings"] = {
+                value: {"minAnnotators": 1, "threshold": 0.5}
+            }
+        elif surface == "closedFields":
+            dataset["closedFields"] = [value]
+        else:
+            raise AssertionError(f"unknown field-key surface {surface!r}")
+        return validator.validate_config(
+            document,
+            pathlib.Path("annotations/config.json"),
+            self.config_schema,
+        )
+
+    def suggestion_id_surface_errors(self, surface: str, value: str) -> list[str]:
+        if surface in {
+            "suggestions.id",
+            "votes",
+            "comments",
+            "deletedSuggestions",
+        }:
+            document = valid_user()
+            if surface == "suggestions.id":
+                document["suggestions"]["cell_type:T"][0]["id"] = value
+            elif surface == "votes":
+                document["votes"] = {value: "up"}
+            elif surface == "comments":
+                document["comments"] = {
+                    value: document["comments"]["suggestion-1"]
+                }
+            else:
+                document["deletedSuggestions"] = {"cell_type:T": [value]}
+            return self.user_errors(document)
+
+        document = valid_merges()
+        if surface == "fromSuggestionId":
+            document["merges"][0]["fromSuggestionId"] = value
+        elif surface == "intoSuggestionId":
+            document["merges"][0]["intoSuggestionId"] = value
+        else:
+            raise AssertionError(f"unknown suggestion-id surface {surface!r}")
+        return validator.validate_merges(
+            document,
+            pathlib.Path("annotations/moderation/merges.json"),
+            self.merges_schema,
+        )
+
+    def bucket_surface_errors(self, surface: str, value: str) -> list[str]:
+        if surface in {"suggestions", "deletedSuggestions"}:
+            document = valid_user()
+            if surface == "suggestions":
+                suggestions = document["suggestions"].pop("cell_type:T")
+                document["suggestions"][value] = suggestions
+            else:
+                document["deletedSuggestions"] = {value: ["suggestion-old"]}
+            return self.user_errors(document)
+
+        if surface != "merges.bucket":
+            raise AssertionError(f"unknown bucket surface {surface!r}")
+        document = valid_merges()
+        document["merges"][0]["bucket"] = value
+        return validator.validate_merges(
+            document,
+            pathlib.Path("annotations/moderation/merges.json"),
+            self.merges_schema,
+        )
+
     def test_complete_valid_user_file(self) -> None:
         self.assertEqual(self.user_errors(valid_user()), [])
 
@@ -225,7 +338,9 @@ class ExactContractTests(unittest.TestCase):
                 document = valid_user()
                 document["orcid"] = value
                 self.assertTrue(
-                    any("orcid" in error.lower() for error in self.user_errors(document))
+                    any(
+                        "orcid" in error.lower() for error in self.user_errors(document)
+                    )
                 )
 
     def test_unknown_fields_are_rejected_at_every_object_layer(self) -> None:
@@ -684,6 +799,264 @@ class ExactContractTests(unittest.TestCase):
         )
         self.assertTrue(any("is not in fieldsToAnnotate" in e for e in errors))
 
+    def test_field_keys_reject_only_the_ambiguous_encoded_prefix_shape(self) -> None:
+        accepted_field_keys = (
+            "fk~foo",
+            "plain%3Afoo",
+            "fk~foo%253Abar",
+            "fk~literal%3A:real-colon",
+            "FK~foo%3Abar",
+        )
+        for field_key in accepted_field_keys:
+            with self.subTest(field_key=field_key):
+                config = valid_config()
+                dataset = config["supportedDatasets"][0]
+                dataset["fieldsToAnnotate"] = [field_key]
+                dataset["annotatableSettings"] = {
+                    field_key: {"minAnnotators": 1, "threshold": 0.5}
+                }
+                dataset["closedFields"] = [field_key]
+                self.assertEqual(
+                    validator.validate_config(
+                        config,
+                        pathlib.Path("annotations/config.json"),
+                        self.config_schema,
+                    ),
+                    [],
+                )
+
+                user = valid_user()
+                user["datasets"]["synthetic"]["fieldsToAnnotate"] = [field_key]
+                self.assertEqual(self.user_errors(user), [])
+
+        for field_key in ("fk~foo%3Abar", "fk~foo%3abar"):
+            with self.subTest(field_key=field_key):
+                config = valid_config()
+                dataset = config["supportedDatasets"][0]
+                dataset["fieldsToAnnotate"] = [field_key]
+                dataset["annotatableSettings"] = {
+                    field_key: {"minAnnotators": 1, "threshold": 0.5}
+                }
+                dataset["closedFields"] = [field_key]
+                config_errors = validator.validate_config(
+                    config,
+                    pathlib.Path("annotations/config.json"),
+                    self.config_schema,
+                )
+                pattern_errors = [
+                    error
+                    for error in config_errors
+                    if "must match pattern" in error
+                ]
+                self.assertEqual(len(pattern_errors), 3)
+                for boundary in (
+                    "fieldsToAnnotate",
+                    "annotatableSettings",
+                    "closedFields",
+                ):
+                    self.assertTrue(
+                        any(boundary in error for error in pattern_errors),
+                        (boundary, pattern_errors),
+                    )
+
+                user = valid_user()
+                user["datasets"]["synthetic"]["fieldsToAnnotate"] = [field_key]
+                self.assertTrue(
+                    any(
+                        "must match pattern" in error
+                        for error in self.user_errors(user)
+                    )
+                )
+
+    def test_field_key_surfaces_reject_every_trailing_line_terminator(self) -> None:
+        surfaces = (
+            "fieldsToAnnotate",
+            "annotatableSettings",
+            "closedFields",
+            "datasets.fieldsToAnnotate",
+        )
+        line_terminators = ("\n", "\r", "\r\n", "\u2028", "\u2029")
+        for surface in surfaces:
+            for terminator in line_terminators:
+                with self.subTest(surface=surface, terminator=repr(terminator)):
+                    errors = self.field_key_surface_errors(
+                        surface,
+                        f"cell_type{terminator}",
+                    )
+                    self.assertTrue(
+                        any(
+                            surface.rsplit(".", 1)[-1] in error
+                            and "must match pattern" in error
+                            for error in errors
+                        ),
+                        errors,
+                    )
+
+    def test_bucket_surfaces_reject_every_trailing_line_terminator(self) -> None:
+        surfaces = ("suggestions", "deletedSuggestions", "merges.bucket")
+        line_terminators = ("\n", "\r", "\r\n", "\u2028", "\u2029")
+        for surface in surfaces:
+            for terminator in line_terminators:
+                with self.subTest(surface=surface, terminator=repr(terminator)):
+                    errors = self.bucket_surface_errors(
+                        surface,
+                        f"cell_type:T{terminator}",
+                    )
+                    self.assertTrue(
+                        any("must match pattern" in error for error in errors),
+                        errors,
+                    )
+
+    def test_encoded_bucket_fields_and_colon_bearing_categories_remain_valid(
+        self,
+    ) -> None:
+        document = valid_user()
+        suggestion = document["suggestions"].pop("cell_type:T")[0]
+        document["suggestions"]["fk~celltype%3Acoarse:T:activated"] = [suggestion]
+        document["deletedSuggestions"] = {
+            "fk~celltype%3Acoarse:T:activated": ["suggestion-old"]
+        }
+        self.assertEqual(self.user_errors(document), [])
+
+        merges = valid_merges()
+        merges["merges"][0]["bucket"] = "fk~celltype%3Acoarse:T:activated"
+        self.assertEqual(
+            validator.validate_merges(
+                merges,
+                pathlib.Path("annotations/moderation/merges.json"),
+                self.merges_schema,
+            ),
+            [],
+        )
+
+    def test_identity_surfaces_preserve_internal_line_terminators(
+        self,
+    ) -> None:
+        line_terminators = ("\n", "\r", "\r\n", "\u2028", "\u2029")
+        suggestion_id_surfaces = (
+            "suggestions.id",
+            "votes",
+            "comments",
+            "deletedSuggestions",
+            "fromSuggestionId",
+            "intoSuggestionId",
+        )
+        for terminator in line_terminators:
+            with self.subTest(identity="field-key", terminator=repr(terminator)):
+                field_key = f"cell{terminator}type"
+                config = valid_config()
+                dataset = config["supportedDatasets"][0]
+                dataset["fieldsToAnnotate"] = [field_key]
+                dataset["annotatableSettings"] = {
+                    field_key: {"minAnnotators": 1, "threshold": 0.5}
+                }
+                dataset["closedFields"] = [field_key]
+                self.assertEqual(
+                    validator.validate_config(
+                        config,
+                        pathlib.Path("annotations/config.json"),
+                        self.config_schema,
+                    ),
+                    [],
+                )
+
+                user = valid_user()
+                user["datasets"]["synthetic"]["fieldsToAnnotate"] = [field_key]
+                self.assertEqual(self.user_errors(user), [])
+
+            for surface in ("suggestions", "deletedSuggestions", "merges.bucket"):
+                for bucket in (
+                    f"cell{terminator}type:T",
+                    f"cell_type:T{terminator}activated",
+                ):
+                    with self.subTest(
+                        identity=surface,
+                        terminator=repr(terminator),
+                        bucket=bucket,
+                    ):
+                        self.assertEqual(
+                            self.bucket_surface_errors(surface, bucket),
+                            [],
+                        )
+
+            for surface in suggestion_id_surfaces:
+                with self.subTest(
+                    identity=surface,
+                    terminator=repr(terminator),
+                ):
+                    self.assertEqual(
+                        self.suggestion_id_surface_errors(
+                            surface,
+                            f"suggestion{terminator}id",
+                        ),
+                        [],
+                    )
+
+    def test_suggestion_id_surfaces_reject_every_trailing_line_terminator(
+        self,
+    ) -> None:
+        surfaces = (
+            "suggestions.id",
+            "votes",
+            "comments",
+            "deletedSuggestions",
+            "fromSuggestionId",
+            "intoSuggestionId",
+        )
+        line_terminators = ("\n", "\r", "\r\n", "\u2028", "\u2029")
+        for surface in surfaces:
+            for terminator in line_terminators:
+                with self.subTest(surface=surface, terminator=repr(terminator)):
+                    errors = self.suggestion_id_surface_errors(
+                        surface,
+                        f"suggestion{terminator}",
+                    )
+                    self.assertTrue(
+                        any("must match pattern" in error for error in errors),
+                        errors,
+                    )
+
+    def test_suggestion_ids_cannot_contain_colons_at_any_boundary_or_position(
+        self,
+    ) -> None:
+        surfaces = (
+            "suggestions.id",
+            "votes",
+            "comments",
+            "deletedSuggestions",
+            "fromSuggestionId",
+            "intoSuggestionId",
+        )
+        values = (":suggestion", "sug:gestion", "suggestion:")
+        for surface in surfaces:
+            for value in values:
+                with self.subTest(surface=surface, value=value):
+                    errors = self.suggestion_id_surface_errors(surface, value)
+                    self.assertTrue(
+                        any("must match pattern" in error for error in errors),
+                        errors,
+                    )
+
+    def test_non_delimiter_colons_and_encoded_text_remain_valid(self) -> None:
+        document = valid_user()
+        suggestion = document["suggestions"]["cell_type:T"][0]
+        suggestion["id"] = "suggestion%3A1"
+        suggestion["label"] = "T: activated"
+        suggestion["ontologyId"] = "CL:0000084"
+        document["votes"] = {"suggestion%3A1": "up"}
+        document["comments"] = {
+            "suggestion%3A1": [
+                {
+                    **document["comments"]["suggestion-1"][0],
+                    "id": "comment:1",
+                }
+            ]
+        }
+        document["deletedSuggestions"] = {
+            "cell_type:T:activated": ["suggestion%3Aold"]
+        }
+        self.assertEqual(self.user_errors(document), [])
+
     def test_merge_mapping_is_unique_and_acyclic(self) -> None:
         duplicate = valid_merges()
         duplicate["merges"].append(
@@ -730,6 +1103,212 @@ class ExactContractTests(unittest.TestCase):
             merges["$id"],
             "https://cellucid.com/contracts/community-annotation/merges-v1.schema.json",
         )
+
+    def test_identity_schema_slots_use_true_end_assertions(self) -> None:
+        field_pattern = (
+            r"^(?!fk~[^:]*%3[Aa][^:]*$(?![\s\S]))"
+            r"\S(?:[\s\S]*\S)?$(?![\s\S])"
+        )
+        config_properties = self.config_schema["properties"]["supportedDatasets"][
+            "items"
+        ]["properties"]
+        field_slots = (
+            config_properties["fieldsToAnnotate"]["items"]["pattern"],
+            config_properties["annotatableSettings"]["propertyNames"]["pattern"],
+            config_properties["closedFields"]["items"]["pattern"],
+            self.user_schema["properties"]["datasets"]["additionalProperties"][
+                "properties"
+            ]["fieldsToAnnotate"]["items"]["pattern"],
+        )
+        self.assertEqual(field_slots, (field_pattern,) * 4)
+
+        suggestion_id_pattern = r"^[^:\s](?:[^:]*[^:\s])?$(?![\s\S])"
+        user_properties = self.user_schema["properties"]
+        suggestion_id_slots = (
+            user_properties["suggestions"]["additionalProperties"]["items"][
+                "properties"
+            ]["id"]["pattern"],
+            user_properties["votes"]["propertyNames"]["pattern"],
+            user_properties["comments"]["propertyNames"]["pattern"],
+            user_properties["deletedSuggestions"]["additionalProperties"]["items"][
+                "pattern"
+            ],
+            self.merges_schema["properties"]["merges"]["items"]["properties"][
+                "fromSuggestionId"
+            ]["pattern"],
+            self.merges_schema["properties"]["merges"]["items"]["properties"][
+                "intoSuggestionId"
+            ]["pattern"],
+        )
+        self.assertEqual(suggestion_id_slots, (suggestion_id_pattern,) * 6)
+
+        bucket_pattern = (
+            r"^[^:\s](?:[^:]*[^:\s])?:"
+            r"\S(?:[\s\S]*\S)?$(?![\s\S])"
+        )
+        bucket_slots = (
+            user_properties["suggestions"]["propertyNames"]["pattern"],
+            user_properties["deletedSuggestions"]["propertyNames"]["pattern"],
+            self.merges_schema["properties"]["merges"]["items"]["properties"][
+                "bucket"
+            ]["pattern"],
+        )
+        self.assertEqual(bucket_slots, (bucket_pattern,) * 3)
+
+    def test_remaining_pattern_inventory_uses_only_portable_true_end_forms(
+        self,
+    ) -> None:
+        free_text = r"^\S(?:[\s\S]*\S)?$"
+        utc_date_time = (
+            r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T"
+            r"[0-9]{2}:[0-9]{2}:[0-9]{2}"
+            r"(\.[0-9]{3})?Z$"
+        )
+        github_identity = r"^ghid_[1-9][0-9]*$"
+        orcid = r"^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$"
+        linkedin = r"^[a-z0-9-]{3,120}$"
+        expected_counts = {
+            free_text: 15,
+            utc_date_time: 9,
+            github_identity: 3,
+            orcid: 1,
+            linkedin: 1,
+        }
+        true_end = r"(?![\s\S])"
+        all_slots = self.schema_pattern_slots()
+        refinement_slots = [
+            (location, schema, schema["pattern"].removesuffix(true_end))
+            for location, schema in all_slots
+            if schema["pattern"].removesuffix(true_end) in expected_counts
+        ]
+
+        self.assertEqual(len(all_slots), 42)
+        self.assertEqual(len(refinement_slots), 29)
+        self.assertEqual(len(all_slots) - len(refinement_slots), 13)
+        self.assertEqual(
+            {
+                pattern: sum(
+                    normalized == pattern
+                    for _, _, normalized in refinement_slots
+                )
+                for pattern in expected_counts
+            },
+            expected_counts,
+        )
+        for location, schema, normalized in refinement_slots:
+            with self.subTest(location=location):
+                self.assertEqual(schema["pattern"], f"{normalized}{true_end}")
+
+    def test_remaining_patterns_reject_every_final_line_terminator(self) -> None:
+        true_end = r"(?![\s\S])"
+        examples = {
+            r"^\S(?:[\s\S]*\S)?$": "Example",
+            (
+                r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T"
+                r"[0-9]{2}:[0-9]{2}:[0-9]{2}"
+                r"(\.[0-9]{3})?Z$"
+            ): "2026-07-25T01:02:03.456Z",
+            r"^ghid_[1-9][0-9]*$": "ghid_42",
+            r"^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$": (
+                "0000-0002-1825-0097"
+            ),
+            r"^[a-z0-9-]{3,120}$": "researcher-42",
+        }
+        line_terminators = ("\n", "\r", "\r\n", "\u2028", "\u2029")
+        refinement_slots = [
+            (location, schema, schema["pattern"].removesuffix(true_end))
+            for location, schema in self.schema_pattern_slots()
+            if schema["pattern"].removesuffix(true_end) in examples
+        ]
+
+        self.assertEqual(len(refinement_slots), 29)
+        for location, schema, normalized in refinement_slots:
+            example = examples[normalized]
+            self.assertEqual(
+                validator._schema_errors(example, schema, "$"),
+                [],
+                location,
+            )
+            for terminator in line_terminators:
+                with self.subTest(
+                    location=location,
+                    terminator=repr(terminator),
+                ):
+                    value = f"{example}{terminator}"
+                    self.assertIsNone(re.search(schema["pattern"], value))
+                    self.assertTrue(
+                        any(
+                            "must match pattern" in error
+                            for error in validator._schema_errors(
+                                value,
+                                schema,
+                                "$",
+                            )
+                        )
+                    )
+
+    def test_free_text_patterns_preserve_internal_terminators_and_lengths(
+        self,
+    ) -> None:
+        free_text = r"^\S(?:[\s\S]*\S)?$"
+        true_end = r"(?![\s\S])"
+        free_text_slots = [
+            (location, schema)
+            for location, schema in self.schema_pattern_slots()
+            if schema["pattern"].removesuffix(true_end) == free_text
+        ]
+        self.assertEqual(len(free_text_slots), 15)
+
+        for location, schema in free_text_slots:
+            maximum = schema["maxLength"]
+            self.assertEqual(
+                validator._schema_errors("x" * maximum, schema, "$"),
+                [],
+                location,
+            )
+            self.assertTrue(
+                any(
+                    f"at most {maximum} character" in error
+                    for error in validator._schema_errors(
+                        "x" * (maximum + 1),
+                        schema,
+                        "$",
+                    )
+                ),
+                location,
+            )
+            for terminator in ("\n", "\r", "\r\n", "\u2028", "\u2029"):
+                with self.subTest(
+                    location=location,
+                    terminator=repr(terminator),
+                ):
+                    self.assertEqual(
+                        validator._schema_errors(
+                            f"left{terminator}right",
+                            schema,
+                            "$",
+                        ),
+                        [],
+                    )
+
+        linkedin_slot = next(
+            schema
+            for location, schema in self.schema_pattern_slots()
+            if location == "user.properties.linkedin"
+        )
+        for value in ("abc", "a" * 120):
+            self.assertEqual(validator._schema_errors(value, linkedin_slot, "$"), [])
+        for value in ("ab", "a" * 121):
+            self.assertTrue(
+                any(
+                    "must match pattern" in error
+                    for error in validator._schema_errors(
+                        value,
+                        linkedin_slot,
+                        "$",
+                    )
+                )
+            )
 
     def test_strict_json_reader_rejects_duplicate_keys_and_nonfinite_numbers(
         self,
@@ -812,6 +1391,48 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout, "")
             self.assertEqual(result.stderr, "")
+
+    def test_cli_enforces_the_exact_active_annotation_file_byte_boundary(
+        self,
+    ) -> None:
+        cases = (
+            (
+                pathlib.Path("annotations/config.json"),
+                valid_config(),
+            ),
+            (
+                pathlib.Path("annotations/users/ghid_42.json"),
+                valid_user(),
+            ),
+            (
+                pathlib.Path("annotations/moderation/merges.json"),
+                valid_merges(),
+            ),
+        )
+        for relative_path, document in cases:
+            with self.subTest(path=relative_path):
+                with tempfile.TemporaryDirectory() as raw_directory:
+                    repository = self.make_repository(pathlib.Path(raw_directory))
+                    path = repository / relative_path
+                    encoded = json.dumps(document).encode("utf-8")
+                    self.assertLess(
+                        len(encoded),
+                        validator.ANNOTATION_FILE_MAX_UTF8_BYTES,
+                    )
+                    exact = encoded + b" " * (
+                        validator.ANNOTATION_FILE_MAX_UTF8_BYTES - len(encoded)
+                    )
+                    path.write_bytes(exact)
+                    accepted = self.run_cli(repository)
+                    self.assertEqual(accepted.returncode, 0, accepted.stderr)
+
+                    path.write_bytes(exact + b" ")
+                    rejected = self.run_cli(repository)
+                    self.assertEqual(rejected.returncode, 1)
+                    self.assertIn(
+                        "exceeds 1000000 bytes",
+                        rejected.stderr,
+                    )
 
     def test_cli_returns_one_and_reports_all_invalid_user_files(self) -> None:
         with tempfile.TemporaryDirectory() as raw_directory:

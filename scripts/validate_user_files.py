@@ -21,6 +21,7 @@ CONFIG_SCHEMA_FILE = ANNOTATIONS_DIR / "config.schema.json"
 USER_SCHEMA_FILE = ANNOTATIONS_DIR / "schema.json"
 MERGES_FILE = ANNOTATIONS_DIR / "moderation" / "merges.json"
 MERGES_SCHEMA_FILE = ANNOTATIONS_DIR / "moderation" / "merges.schema.json"
+ANNOTATION_FILE_MAX_UTF8_BYTES = 1_000_000
 
 _SCHEMA_KEYS = frozenset(
     {
@@ -64,6 +65,10 @@ class JsonInputError(ValueError):
     """Raised when input uses syntax that is not valid, unambiguous JSON."""
 
 
+class AnnotationFileTooLargeError(JsonInputError):
+    """Raised before parsing an active annotation file over GitHub's limit."""
+
+
 class SchemaDefinitionError(ValueError):
     """Raised when a checked-in schema uses an unsupported or invalid shape."""
 
@@ -89,6 +94,22 @@ def read_json(path: pathlib.Path) -> Any:
             object_pairs_hook=_object_without_duplicate_keys,
             parse_constant=_reject_json_constant,
         )
+
+
+def read_annotation_json(path: pathlib.Path) -> Any:
+    """Read one bounded active annotation file as strict UTF-8 JSON."""
+    with path.open("rb") as handle:
+        raw = handle.read(ANNOTATION_FILE_MAX_UTF8_BYTES + 1)
+    if len(raw) > ANNOTATION_FILE_MAX_UTF8_BYTES:
+        raise AnnotationFileTooLargeError(
+            f"active annotation file exceeds {ANNOTATION_FILE_MAX_UTF8_BYTES} bytes"
+        )
+    text = raw.decode("utf-8")
+    return json.loads(
+        text,
+        object_pairs_hook=_object_without_duplicate_keys,
+        parse_constant=_reject_json_constant,
+    )
 
 
 def fail(errors: Sequence[str]) -> int:
@@ -327,27 +348,27 @@ def _validate_schema_definition(schema: Any, location: str = "$") -> None:
         raise SchemaDefinitionError(f"{location}: schema must be an object")
     unknown = set(schema) - _SCHEMA_KEYS
     if unknown:
-        names = ", ".join(sorted(repr(name) for name in unknown))
+        unknown_names = ", ".join(sorted(repr(name) for name in unknown))
         raise SchemaDefinitionError(
-            f"{location}: unsupported schema keyword(s): {names}"
+            f"{location}: unsupported schema keyword(s): {unknown_names}"
         )
 
     if "type" in schema:
         declared = schema["type"]
         if isinstance(declared, str):
-            names = (declared,)
+            type_names = (declared,)
         elif (
             isinstance(declared, list)
             and declared
             and all(isinstance(name, str) for name in declared)
         ):
-            names = tuple(declared)
+            type_names = tuple(declared)
         else:
             raise SchemaDefinitionError(
                 f"{location}.type: must be a type name or non-empty array"
             )
-        if len(set(names)) != len(names) or any(
-            name not in _JSON_TYPES for name in names
+        if len(set(type_names)) != len(type_names) or any(
+            name not in _JSON_TYPES for name in type_names
         ):
             raise SchemaDefinitionError(
                 f"{location}.type: contains an invalid or duplicate type"
@@ -542,9 +563,7 @@ def validate_user_file(
         )
     orcid = doc.get("orcid")
     if isinstance(orcid, str) and not _is_valid_orcid_id(orcid):
-        errors.append(
-            f'{path}: $["orcid"] must be an exact checksum-valid ORCID iD'
-        )
+        errors.append(f'{path}: $["orcid"] must be an exact checksum-valid ORCID iD')
     suggestion_ids: set[str] = set()
     suggestions = doc.get("suggestions")
     if isinstance(suggestions, dict):
@@ -691,7 +710,7 @@ def _read_and_validate(
     validator: Any,
 ) -> list[str]:
     try:
-        doc = read_json(path)
+        doc = read_annotation_json(path)
     except (OSError, UnicodeError, json.JSONDecodeError, JsonInputError) as error:
         return [_input_error(path, error)]
     return validator(doc, path, schema)
@@ -769,20 +788,16 @@ def main() -> int:
                     errors.append(f"{path}: cannot inspect .gitkeep ({error})")
                     continue
                 if sentinel_bytes != b"\n":
-                    errors.append(
-                        f"{path}: .gitkeep must contain exactly one LF byte"
-                    )
+                    errors.append(f"{path}: .gitkeep must contain exactly one LF byte")
                 continue
             if path.suffix != ".json":
-                errors.append(
-                    f"{path}: only canonical user JSON files are permitted"
-                )
+                errors.append(f"{path}: only canonical user JSON files are permitted")
                 continue
             user_paths.append(path)
     valid_user_documents: list[tuple[pathlib.Path, Mapping[str, Any]]] = []
     for path in user_paths:
         try:
-            document = read_json(path)
+            document = read_annotation_json(path)
         except (OSError, UnicodeError, json.JSONDecodeError, JsonInputError) as error:
             errors.append(_input_error(path, error))
             continue
