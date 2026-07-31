@@ -38,6 +38,16 @@ The three schemas declare fixed current identities:
 - `https://cellucid.com/contracts/community-annotation/config-v1.schema.json`
 - `https://cellucid.com/contracts/community-annotation/merges-v1.schema.json`
 
+These `$id` values are **identifiers, not links**. They are compared as exact
+strings by `scripts/validate_user_files.py` and by the viewer
+(`cellucid/assets/js/app/community-annotations/wire-contract.js`); nothing
+fetches them, and they are not required to resolve. They deliberately use the
+bare apex `cellucid.com`, while every URL meant to be opened in a browser — the
+[live application](https://www.cellucid.com) included — uses the canonical
+`www.cellucid.com` host. Do not "normalise" one form into the other: changing a
+published `$id` breaks every repository already validated against it. A genuine
+contract change gets a new `-v2` identity instead.
+
 ## How collaboration works
 
 This template is designed for many annotators to collaborate safely:
