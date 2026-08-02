@@ -15,12 +15,29 @@ from typing import Any
 
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT = REPOSITORY_ROOT / "scripts" / "validate_user_files.py"
+WORKFLOW = REPOSITORY_ROOT / ".github" / "workflows" / "validate.yml"
 
 SPEC = importlib.util.spec_from_file_location("validate_user_files", SCRIPT)
 assert SPEC is not None
 assert SPEC.loader is not None
 validator = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(validator)
+
+# Every file at the repository root is text this project publishes, so the root
+# is governed by exclusion rather than by naming files one at a time. The only
+# exclusion is the Finder index macOS drops beside them, which is binary. Two
+# rules read this: the retired-language sweep, and the check that CI actually
+# runs when one of these files changes. Keeping it in one place is what stops
+# those two from drifting apart.
+UNGOVERNED_ROOT_FILES = {".DS_Store"}
+
+
+def governed_root_files() -> list[pathlib.Path]:
+    return sorted(
+        path
+        for path in REPOSITORY_ROOT.iterdir()
+        if path.is_file() and path.name not in UNGOVERNED_ROOT_FILES
+    )
 
 
 def valid_user() -> dict[str, Any]:
@@ -128,8 +145,12 @@ class ExactContractTests(unittest.TestCase):
             r"backwards?[\s_-]*compat|\bshim\b",
             re.IGNORECASE,
         )
+        # The governance files at the root -- LICENSE, CONTRIBUTING.md,
+        # SECURITY.md, SUPPORT.md, CODE_OF_CONDUCT.md, CITATION.cff -- describe
+        # this repository to its readers just as the README does, so the sweep
+        # covers the whole root rather than naming README.md and nothing else.
         files = [
-            REPOSITORY_ROOT / "README.md",
+            *governed_root_files(),
             REPOSITORY_ROOT / "annotations" / "schema.json",
             REPOSITORY_ROOT / "annotations" / "config.schema.json",
             REPOSITORY_ROOT / "annotations" / "config.json",
@@ -138,6 +159,8 @@ class ExactContractTests(unittest.TestCase):
             *sorted((REPOSITORY_ROOT / ".github" / "workflows").glob("*.yml")),
             *sorted((REPOSITORY_ROOT / ".github" / "workflows").glob("*.yaml")),
         ]
+        self.assertIn(REPOSITORY_ROOT / "README.md", files)
+        self.assertIn(REPOSITORY_ROOT / "LICENSE", files)
         violations: list[str] = []
         for path in files:
             for line_number, line in enumerate(
@@ -150,6 +173,26 @@ class ExactContractTests(unittest.TestCase):
                         f"{line.strip()}"
                     )
         self.assertEqual(violations, [])
+
+    def test_ci_runs_for_every_root_file_the_sweep_governs(self) -> None:
+        # The sweep above governs the whole repository root, but the workflow
+        # decides whether CI runs at all, and it does that from a list of paths.
+        # When the sweep was widened past README.md the list was not, so seven
+        # governed files -- the six governance files and .gitignore -- could be
+        # changed in a pull request that ran no checks: a green local run was
+        # the only thing standing between a violation and `main`. This holds the
+        # two together, in both triggers, so the list cannot fall behind the
+        # root again.
+        workflow_lines = WORKFLOW.read_text(encoding="utf-8").splitlines()
+        for path in governed_root_files():
+            name = path.relative_to(REPOSITORY_ROOT).as_posix()
+            self.assertEqual(
+                sum(line.strip() == f'- "{name}"' for line in workflow_lines),
+                2,
+                f"{name} is swept for retired language but does not appear in "
+                "both the push and pull_request path filters of "
+                ".github/workflows/validate.yml, so changing it runs no CI.",
+            )
 
     def test_readme_cross_references_the_current_cellucid_ecosystem(self) -> None:
         readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
@@ -179,6 +222,23 @@ class ExactContractTests(unittest.TestCase):
         self.assertIn(
             "Suggestion ids cannot contain `:` because Cellucid reserves that "
             "character as the delimiter",
+            readme,
+        )
+        # CONTRIBUTING.md promises that four reservations are pinned to the
+        # README text, not two. The byte ceiling and the timestamp grammar were
+        # named in that promise but asserted nowhere, so the README could state
+        # a boundary the validator does not enforce and the suite would stay
+        # green. Both are now pinned to the values they describe.
+        self.assertIn(
+            f"must be at most **{validator.ANNOTATION_FILE_MAX_UTF8_BYTES:,} "
+            "UTF-8 bytes**",
+            readme,
+        )
+        self.assertIn(
+            "Every timestamp is UTC and must use exactly "
+            "`YYYY-MM-DDTHH:MM:SSZ` or `YYYY-MM-DDTHH:MM:SS.sssZ`. Calendar "
+            "dates and clock values must be real; offsets, lowercase `z`, and "
+            "other fractional precision are rejected.",
             readme,
         )
 

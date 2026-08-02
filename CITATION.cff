@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use Cellucid's community annotation layout in your work, please cite this software."
+type: software
+title: "Cellucid community annotation: a GitHub-backed layout for collaborative cell annotation"
+# No `version:` field, by design. This repository publishes a contract, not a
+# release: its identity is the three schema `$id` values it declares, which are
+# compared as exact strings and are replaced by a new `-v2` identity rather
+# than revised in place. The versioned companions are the Python
+# (theislab/cellucid-python) and R (theislab/cellucid-r) packages, whose
+# CITATION.cff files do carry `version:`.
+authors:
+  - family-names: Inecik
+    given-names: Kemal
+    email: k.inecik@gmail.com
+repository-code: "https://github.com/theislab/cellucid-annotation"
+url: "https://www.cellucid.com"
+license: "BSD-3-Clause"

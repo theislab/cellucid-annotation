@@ -32,6 +32,14 @@ Only files declared by this layout belong in the annotation contract. A
 compiled consensus file is deliberately not committed: it is a view derived
 from the validated user files, configuration, and moderation merges.
 
+Beside the contract, this repository's root also carries the governance files
+the Cellucid repositories carry — `LICENSE`, `CONTRIBUTING.md`,
+`SECURITY.md`, `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff` — plus
+`.gitignore` and `.gitattributes`. They govern this repository; they are not
+part of the layout, and an annotation repository built from it does not need
+them. Copy the contract files listed above and give your own repository its own
+licence and policies.
+
 The three schemas declare fixed current identities:
 
 - `https://cellucid.com/contracts/community-annotation/user-v1.schema.json`
@@ -92,8 +100,10 @@ without changing anyone's votes.
 
 ## Set up an annotation round
 
-1. Create a new GitHub repository and copy this repository's checked-in
-   template files into its root.
+1. Create a new GitHub repository and copy the contract files listed above —
+   `annotations/`, `scripts/`, and `.github/workflows/validate.yml` — into its
+   root. Leave this repository's own licence and policy files behind and give
+   yours its own.
 2. Configure `annotations/config.json` to match your dataset id(s) and annotatable field(s).
    - The checked-in `example-dataset-id` / `cell_type` / `batch` entry is a
      valid worked example; replace it with the exact identifiers in your
@@ -139,13 +149,17 @@ This template includes one workflow:
 
 File: `.github/workflows/validate.yml`
 
-- Runs on pushes and pull requests that touch the README or any checked
-  contract, workflow, validator, or test surface.
+- Runs on pushes and pull requests that touch any checked contract, workflow,
+  validator, or test surface, or any file at the repository root — the README
+  and the governance files beside it are swept by the suite, so changing one
+  has to run it.
 - Validates human/client-authored inputs:
   - `annotations/config.json`
   - `annotations/users/*.json`
   - `annotations/moderation/merges.json` (optional)
-- Executes: `python scripts/validate_user_files.py`
+- Executes both checks, in order:
+  - `python -m unittest discover -s tests -v`
+  - `python scripts/validate_user_files.py`
 
 If this fails, fix the JSON files in `annotations/` (do not edit any derived/exported outputs).
 
@@ -217,8 +231,10 @@ User files include identity metadata that Cellucid stores in each `annotations/u
 - `githubUserId` (stable GitHub numeric id; file identity is `ghid_<id>`)
 - `login` (GitHub username; informational only)
 - `displayName`, `title`, `orcid`, `linkedin` (optional; ORCID uses the exact
-  checksum-valid `0000-0000-0000-0000` representation and LinkedIn uses an
-  exact lowercase handle without `@` or a URL)
+  checksum-valid `0000-0000-0000-0000` representation — the final character is
+  a check digit and is an uppercase `X` when that digit is ten, as in
+  `0000-0000-0000-001X` — and LinkedIn uses an exact lowercase handle without
+  `@` or a URL)
 - `datasets` (optional): informational record of dataset ids and annotatable fields the user has accessed
 
 ## Privacy and repository hygiene
