@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use Cellucid's community annotation layout in your work, please cite this software."
+message: "If you use Cellucid's community annotation layout in your work, please cite the reference under preferred-citation."
 type: software
 title: "Cellucid community annotation: a GitHub-backed layout for collaborative cell annotation"
 # No `version:` field, by design. This repository publishes a contract, not a
@@ -15,3 +15,27 @@ authors:
 repository-code: "https://github.com/theislab/cellucid-annotation"
 url: "https://www.cellucid.com"
 license: "BSD-3-Clause"
+# BEGIN cellucid preferred-citation
+# The single source of the Cellucid citation. It is written only in
+# theislab/cellucid/CITATION.cff and copied verbatim into every other Cellucid
+# repository's CITATION.cff; the README citations, the documentation's
+# "Citing Cellucid" page, and the R package's inst/CITATION are generated from
+# it. Never edit a copy.
+#
+# PLACEHOLDER while there is no `doi:`. Every generated citation says so for as
+# long as `doi:` is absent. When the bioRxiv preprint is published:
+#   1. set the real `title`, the full `authors` list, `doi`, and `year`, and
+#      change `status` to `preprint`;
+#   2. from the workspace, run
+#        python cellucid-private/scripts/sync_citation.py
+#      then `python cellucid-private/scripts/sync_citation.py --check`;
+#   3. commit every repository it changed.
+preferred-citation:
+  type: article
+  status: in-preparation
+  title: "PLACEHOLDER: Cellucid preprint, title to be announced (forthcoming on bioRxiv)"
+  authors:
+    - family-names: "Inecik"
+      given-names: "Kemal"
+  journal: "bioRxiv"
+# END cellucid preferred-citation

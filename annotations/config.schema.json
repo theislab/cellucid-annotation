@@ -9,7 +9,6 @@
     "supportedDatasets": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 200,
       "items": {
         "type": "object",
         "required": [
@@ -25,11 +24,9 @@
           "fieldsToAnnotate": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 200,
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 256,
               "description": "Exact observation field key. A colon-free key must not use the reserved lowercase fk~...%3A encoding shape.",
               "pattern": "^(?!fk~[^:]*%3[Aa][^:]*$(?![\\s\\S]))\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])"
             },
@@ -37,10 +34,8 @@
           },
           "annotatableSettings": {
             "type": "object",
-            "maxProperties": 200,
             "propertyNames": {
               "minLength": 1,
-              "maxLength": 256,
               "description": "Exact observation field key. A colon-free key must not use the reserved lowercase fk~...%3A encoding shape.",
               "pattern": "^(?!fk~[^:]*%3[Aa][^:]*$(?![\\s\\S]))\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])"
             },
@@ -50,8 +45,7 @@
               "properties": {
                 "minAnnotators": {
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 50
+                  "minimum": 0
                 },
                 "threshold": {
                   "type": "number",
@@ -64,11 +58,9 @@
           },
           "closedFields": {
             "type": "array",
-            "maxItems": 200,
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 256,
               "description": "Exact observation field key. A colon-free key must not use the reserved lowercase fk~...%3A encoding shape.",
               "pattern": "^(?!fk~[^:]*%3[Aa][^:]*$(?![\\s\\S]))\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])"
             },

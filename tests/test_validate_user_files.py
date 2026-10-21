@@ -198,7 +198,7 @@ class ExactContractTests(unittest.TestCase):
         readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
         for url in (
             (
-                "https://cellucid.readthedocs.io/en/latest/user_guide/web_app/"
+                "https://docs.cellucid.com/en/latest/user_guide/web_app/"
                 "j_community_annotation/index.html"
             ),
             "https://github.com/theislab/cellucid",
@@ -797,7 +797,7 @@ class ExactContractTests(unittest.TestCase):
             any("conflicts with the suggestion owned by" in e for e in errors)
         )
 
-    def test_blank_markers_and_explicit_limits_are_rejected(self) -> None:
+    def test_blank_markers_and_text_lengths_are_checked(self) -> None:
         blank = valid_user()
         blank["suggestions"]["cell_type:T"][0]["markers"] = ["   "]
         self.assertTrue(any("must match pattern" in e for e in self.user_errors(blank)))
@@ -811,16 +811,21 @@ class ExactContractTests(unittest.TestCase):
             )
         )
 
-        over_limit = valid_user()
-        over_limit["suggestions"]["cell_type:T"][0]["markers"] = [
-            f"G{index}" for index in range(51)
+        # Counts are bounded by the 1 MB file, not by a fixed item cap: a
+        # long marker list is accepted.
+        many_markers = valid_user()
+        many_markers["suggestions"]["cell_type:T"][0]["markers"] = [
+            f"G{index}" for index in range(5_000)
         ]
-        self.assertTrue(
-            any(
-                "must contain at most 50 item" in e
-                for e in self.user_errors(over_limit)
-            )
-        )
+        self.assertEqual(self.user_errors(many_markers), [])
+
+        # A bucket is `field:category` as the exporters write them, which
+        # carry no length limit, so a long category label can be annotated.
+        long_bucket = valid_user()
+        long_bucket["suggestions"]["cell_type:" + "T" * 5_000] = long_bucket[
+            "suggestions"
+        ].pop("cell_type:T")
+        self.assertEqual(self.user_errors(long_bucket), [])
 
         unicode_boundary = valid_user()
         unicode_boundary["suggestions"]["cell_type:T"][0]["label"] = "😀" * 120
@@ -1609,3 +1614,26 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NoFabricatedCountLimitsTests(unittest.TestCase):
+    """The schemas carry no item-count caps and no length cap on keys the
+    exporters write (field keys, `field:category` buckets): the 1 MB file is
+    the only bound on how much one contributor file holds."""
+
+    def test_schemas_have_no_count_caps(self) -> None:
+        import json
+
+        def walk(node, location):
+            if isinstance(node, dict):
+                for keyword in ("maxItems", "maxProperties"):
+                    self.assertNotIn(keyword, node, location)
+                for key, value in node.items():
+                    walk(value, f"{location}/{key}")
+            elif isinstance(node, list):
+                for index, value in enumerate(node):
+                    walk(value, f"{location}/{index}")
+
+        root = pathlib.Path(__file__).resolve().parents[1] / "annotations"
+        for name in ("schema.json", "config.schema.json", "moderation/merges.schema.json"):
+            walk(json.loads((root / name).read_text(encoding="utf-8")), name)

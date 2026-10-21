@@ -4,7 +4,7 @@ Thanks for using the Cellucid community annotation layout.
 
 ## Getting help
 
-- Documentation: https://cellucid.readthedocs.io/en/latest/user_guide/web_app/j_community_annotation/index.html
+- Documentation: https://docs.cellucid.com/en/latest/user_guide/web_app/j_community_annotation/index.html
 - Issues about the layout itself — the three schemas, the validator, or the
   workflow: https://github.com/theislab/cellucid-annotation/issues
 - Issues about how Cellucid signs in, pulls, compiles consensus, or publishes:
