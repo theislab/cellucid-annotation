@@ -11,8 +11,9 @@ annotation work does not create shared-file merge conflicts. On **Pull**,
 Cellucid validates the repository and compiles the merged consensus view in the
 browser.
 
-This repository stores annotation records only. Keep embeddings, expression
-matrices, and prepared Cellucid payloads in a separate dataset source. See the
+This repository stores annotation records only. Keep the dataset itself (the
+AnnData file or Zarr store Cellucid opens, with its embeddings and expression
+matrix) in a separate dataset source. See the
 [complete community annotation guide](https://docs.cellucid.com/en/latest/user_guide/web_app/j_community_annotation/index.html)
 for the author walkthrough, annotator walkthrough, UI reference, screenshots,
 and troubleshooting.
@@ -22,7 +23,7 @@ and troubleshooting.
 - `annotations/schema.json` - exact JSON schema for user vote files
 - `annotations/config.schema.json` - exact JSON schema for repository configuration
 - `annotations/config.json` - Dataset binding + author-controlled annotatable fields + per-field consensus settings
-- `annotations/users/*.json` - Per-user suggestions & votes (conflict-free collaboration)
+- `annotations/users/*.json` - Per-user suggestions & votes, kept per dataset (conflict-free collaboration)
 - `annotations/moderation/merges.schema.json` - exact JSON schema for moderation merges
 - `annotations/moderation/merges.json` - Optional author-only merges (maintainers/admins)
 - `scripts/validate_user_files.py` - Validation script (run by CI and usable locally)
@@ -42,9 +43,9 @@ licence and policies.
 
 The three schemas declare fixed current identities:
 
-- `https://cellucid.com/contracts/community-annotation/user-v1.schema.json`
+- `https://cellucid.com/contracts/community-annotation/user-v2.schema.json`
 - `https://cellucid.com/contracts/community-annotation/config-v1.schema.json`
-- `https://cellucid.com/contracts/community-annotation/merges-v1.schema.json`
+- `https://cellucid.com/contracts/community-annotation/merges-v2.schema.json`
 
 These `$id` values are **identifiers, not links**. They are compared as exact
 strings by `scripts/validate_user_files.py` and by the viewer
@@ -54,7 +55,7 @@ bare apex `cellucid.com`, while every URL meant to be opened in a browser — th
 [live application](https://www.cellucid.com) included — uses the canonical
 `www.cellucid.com` host. Do not "normalise" one form into the other: changing a
 published `$id` breaks every repository already validated against it. A genuine
-contract change gets a new `-v2` identity instead.
+contract change gets a new versioned identity (the next `-vN`) instead.
 
 ## How collaboration works
 
@@ -191,9 +192,10 @@ Files must be UTF-8 JSON without a byte-order mark. User JSON files must be
 direct children of `annotations/users/`; case variants and nested JSON paths are
 invalid. The only non-JSON entry permitted there is the checked-in `.gitkeep`,
 whose complete content is one LF byte so an empty user inventory remains
-representable in Git. Suggestion ids must remain unambiguous across the
-repository: one id cannot identify suggestions owned by different users or
-stored in different buckets, and `:` is not permitted in an id.
+representable in Git. Within one dataset, suggestion ids must remain
+unambiguous across the repository: one id cannot identify suggestions owned by
+different users or stored in different buckets, and `:` is not permitted in an
+id.
 
 Every active `annotations/config.json`, `annotations/users/ghid_<id>.json`, and
 optional `annotations/moderation/merges.json` file must be at most **1,000,000
@@ -214,7 +216,7 @@ of being replaced with an in-memory cache.
 If you maintain the repo and want to "merge" suggestions (e.g. two different labels that should be treated as the same), you can add `annotations/moderation/merges.json`.
 
 - This file is optional and typically restricted to maintainers/admins.
-- Merges create a mapping from `fromSuggestionId` → `intoSuggestionId` within the same bucket.
+- Merges create a mapping from `fromSuggestionId` → `intoSuggestionId` within the same bucket of the same dataset; every merge names its `datasetId`, so the same bucket name in another dataset is never affected.
 - Bucket key format: `<fieldKey>:<categoryLabel>`. If `fieldKey` contains `:`, Cellucid encodes it as `fk~<urlencoded>` (example: `fk~celltype%3Acoarse:...`).
 - Category labels may contain `:`; suggestion ids may not, so the complete
   bucket/id identity remains unambiguous.
@@ -235,7 +237,11 @@ User files include identity metadata that Cellucid stores in each `annotations/u
   a check digit and is an uppercase `X` when that digit is ten, as in
   `0000-0000-0000-001X` — and LinkedIn uses an exact lowercase handle without
   `@` or a URL)
-- `datasets` (optional): informational record of dataset ids and annotatable fields the user has accessed
+- `datasets`: one section per dataset id. Each holds that dataset's access
+  record (`fieldsToAnnotate`, `lastAccessedAt`) and the contributor's
+  `suggestions`, `votes`, and optional `comments` and `deletedSuggestions` for
+  it. Two datasets in one repository can share a field and a category label,
+  so nothing a contributor writes for one dataset is ever read for another.
 
 ## Privacy and repository hygiene
 

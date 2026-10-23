@@ -42,7 +42,7 @@ def governed_root_files() -> list[pathlib.Path]:
 
 def valid_user() -> dict[str, Any]:
     return {
-        "version": 1,
+        "version": 2,
         "username": "ghid_42",
         "githubUserId": 42,
         "login": "researcher",
@@ -55,39 +55,44 @@ def valid_user() -> dict[str, Any]:
             "synthetic": {
                 "fieldsToAnnotate": ["cell_type"],
                 "lastAccessedAt": "2026-07-25T00:00:00Z",
+                "suggestions": {
+                    "cell_type:T": [
+                        {
+                            "id": "suggestion-1",
+                            "label": "T cell",
+                            "ontologyId": "CL:0000084",
+                            "evidence": "Synthetic evidence",
+                            "markers": [
+                                "CD3D",
+                                {"gene": "CD3E", "logFC": 2.5, "pval": 0.001},
+                            ],
+                            "proposedBy": "ghid_42",
+                            "proposedAt": "2026-07-25T00:00:00Z",
+                            "editedAt": None,
+                        }
+                    ]
+                },
+                "votes": {"suggestion-1": "up"},
+                "comments": {
+                    "suggestion-1": [
+                        {
+                            "id": "comment-1",
+                            "text": "Agreed",
+                            "authorUsername": "ghid_42",
+                            "createdAt": "2026-07-25T00:00:00Z",
+                            "editedAt": None,
+                        }
+                    ]
+                },
+                "deletedSuggestions": {"cell_type:T": ["suggestion-old"]},
             }
         },
-        "suggestions": {
-            "cell_type:T": [
-                {
-                    "id": "suggestion-1",
-                    "label": "T cell",
-                    "ontologyId": "CL:0000084",
-                    "evidence": "Synthetic evidence",
-                    "markers": [
-                        "CD3D",
-                        {"gene": "CD3E", "logFC": 2.5, "pval": 0.001},
-                    ],
-                    "proposedBy": "ghid_42",
-                    "proposedAt": "2026-07-25T00:00:00Z",
-                    "editedAt": None,
-                }
-            ]
-        },
-        "votes": {"suggestion-1": "up"},
-        "comments": {
-            "suggestion-1": [
-                {
-                    "id": "comment-1",
-                    "text": "Agreed",
-                    "authorUsername": "ghid_42",
-                    "createdAt": "2026-07-25T00:00:00Z",
-                    "editedAt": None,
-                }
-            ]
-        },
-        "deletedSuggestions": {"cell_type:T": ["suggestion-old"]},
     }
+
+
+def section(document: dict[str, Any], dataset_id: str = "synthetic") -> dict[str, Any]:
+    """One dataset's section of a user file."""
+    return document["datasets"][dataset_id]
 
 
 def valid_config() -> dict[str, Any]:
@@ -109,10 +114,11 @@ def valid_config() -> dict[str, Any]:
 
 def valid_merges() -> dict[str, Any]:
     return {
-        "version": 1,
+        "version": 2,
         "updatedAt": "2026-07-25T00:00:00Z",
         "merges": [
             {
+                "datasetId": "synthetic",
                 "bucket": "cell_type:T",
                 "fromSuggestionId": "suggestion-1",
                 "intoSuggestionId": "suggestion-2",
@@ -340,15 +346,15 @@ class ExactContractTests(unittest.TestCase):
         }:
             document = valid_user()
             if surface == "suggestions.id":
-                document["suggestions"]["cell_type:T"][0]["id"] = value
+                section(document)["suggestions"]["cell_type:T"][0]["id"] = value
             elif surface == "votes":
-                document["votes"] = {value: "up"}
+                section(document)["votes"] = {value: "up"}
             elif surface == "comments":
-                document["comments"] = {
-                    value: document["comments"]["suggestion-1"]
+                section(document)["comments"] = {
+                    value: section(document)["comments"]["suggestion-1"]
                 }
             else:
-                document["deletedSuggestions"] = {"cell_type:T": [value]}
+                section(document)["deletedSuggestions"] = {"cell_type:T": [value]}
             return self.user_errors(document)
 
         document = valid_merges()
@@ -368,10 +374,10 @@ class ExactContractTests(unittest.TestCase):
         if surface in {"suggestions", "deletedSuggestions"}:
             document = valid_user()
             if surface == "suggestions":
-                suggestions = document["suggestions"].pop("cell_type:T")
-                document["suggestions"][value] = suggestions
+                suggestions = section(document)["suggestions"].pop("cell_type:T")
+                section(document)["suggestions"][value] = suggestions
             else:
-                document["deletedSuggestions"] = {value: ["suggestion-old"]}
+                section(document)["deletedSuggestions"] = {value: ["suggestion-old"]}
             return self.user_errors(document)
 
         if surface != "merges.bucket":
@@ -415,15 +421,15 @@ class ExactContractTests(unittest.TestCase):
         documents.append(dataset)
 
         suggestion = valid_user()
-        suggestion["suggestions"]["cell_type:T"][0]["unknown"] = True
+        section(suggestion)["suggestions"]["cell_type:T"][0]["unknown"] = True
         documents.append(suggestion)
 
         marker = valid_user()
-        marker["suggestions"]["cell_type:T"][0]["markers"][1]["unknown"] = True
+        section(marker)["suggestions"]["cell_type:T"][0]["markers"][1]["unknown"] = True
         documents.append(marker)
 
         comment = valid_user()
-        comment["comments"]["suggestion-1"][0]["unknown"] = True
+        section(comment)["comments"]["suggestion-1"][0]["unknown"] = True
         documents.append(comment)
 
         for document in documents:
@@ -439,8 +445,7 @@ class ExactContractTests(unittest.TestCase):
             ("username", 42),
             ("githubUserId", "42"),
             ("updatedAt", 123),
-            ("suggestions", []),
-            ("votes", []),
+            ("datasets", []),
         )
         for key, value in mutations:
             with self.subTest(key=key):
@@ -448,9 +453,15 @@ class ExactContractTests(unittest.TestCase):
                 document[key] = value
                 errors = self.user_errors(document)
                 self.assertTrue(any("must have JSON type" in error for error in errors))
+        for key in ("suggestions", "votes"):
+            with self.subTest(section_key=key):
+                document = valid_user()
+                section(document)[key] = []
+                errors = self.user_errors(document)
+                self.assertTrue(any("must have JSON type" in error for error in errors))
 
         document = valid_user()
-        document["suggestions"]["cell_type:T"][0]["label"] = 7
+        section(document)["suggestions"]["cell_type:T"][0]["label"] = 7
         self.assertTrue(
             any(
                 "must have JSON type string" in error
@@ -460,7 +471,7 @@ class ExactContractTests(unittest.TestCase):
 
     def test_schema_integer_semantics_match_browser_json_numbers(self) -> None:
         document = valid_user()
-        document["version"] = 1.0
+        document["version"] = 2.0
         document["githubUserId"] = 42.0
         self.assertEqual(self.user_errors(document), [])
 
@@ -468,10 +479,10 @@ class ExactContractTests(unittest.TestCase):
         document = valid_user()
         document["updatedAt"] = "2026-07-25T01:02:03.456Z"
         document["datasets"]["synthetic"]["lastAccessedAt"] = "2026-07-25T01:02:03.456Z"
-        suggestion = document["suggestions"]["cell_type:T"][0]
+        suggestion = section(document)["suggestions"]["cell_type:T"][0]
         suggestion["proposedAt"] = "2026-07-25T01:02:03.456Z"
         suggestion["editedAt"] = "2026-07-25T01:02:03.456Z"
-        comment = document["comments"]["suggestion-1"][0]
+        comment = section(document)["comments"]["suggestion-1"][0]
         comment["createdAt"] = "2026-07-25T01:02:03.456Z"
         comment["editedAt"] = "2026-07-25T01:02:03.456Z"
         self.assertEqual(self.user_errors(document), [])
@@ -498,16 +509,16 @@ class ExactContractTests(unittest.TestCase):
             lambda item: item["datasets"]["synthetic"].__setitem__(
                 "lastAccessedAt", "2026-02-30T00:00:00Z"
             ),
-            lambda item: item["suggestions"]["cell_type:T"][0].__setitem__(
+            lambda item: section(item)["suggestions"]["cell_type:T"][0].__setitem__(
                 "proposedAt", "2026-02-30T00:00:00Z"
             ),
-            lambda item: item["suggestions"]["cell_type:T"][0].__setitem__(
+            lambda item: section(item)["suggestions"]["cell_type:T"][0].__setitem__(
                 "editedAt", "2026-02-30T00:00:00Z"
             ),
-            lambda item: item["comments"]["suggestion-1"][0].__setitem__(
+            lambda item: section(item)["comments"]["suggestion-1"][0].__setitem__(
                 "createdAt", "2026-02-30T00:00:00Z"
             ),
-            lambda item: item["comments"]["suggestion-1"][0].__setitem__(
+            lambda item: section(item)["comments"]["suggestion-1"][0].__setitem__(
                 "editedAt", "2026-02-30T00:00:00Z"
             ),
         )
@@ -523,24 +534,24 @@ class ExactContractTests(unittest.TestCase):
 
     def test_every_suggestion_after_item_500_is_validated(self) -> None:
         document = valid_user()
-        item = document["suggestions"]["cell_type:T"][0]
-        document["suggestions"]["cell_type:T"] = [
+        item = section(document)["suggestions"]["cell_type:T"][0]
+        section(document)["suggestions"]["cell_type:T"] = [
             copy.deepcopy(item) for _ in range(501)
         ]
-        document["suggestions"]["cell_type:T"][500]["label"] = 7
+        section(document)["suggestions"]["cell_type:T"][500]["label"] = 7
         errors = self.user_errors(document)
         self.assertTrue(any("[500]" in error and "label" in error for error in errors))
 
     def test_every_nested_tail_item_is_validated(self) -> None:
         document = valid_user()
-        suggestion = document["suggestions"]["cell_type:T"][0]
+        suggestion = section(document)["suggestions"]["cell_type:T"][0]
         suggestion["markers"] = ["CD3D" for _ in range(201)]
         suggestion["markers"][200] = 7
-        comment = document["comments"]["suggestion-1"][0]
-        document["comments"]["suggestion-1"] = [
+        comment = section(document)["comments"]["suggestion-1"][0]
+        section(document)["comments"]["suggestion-1"] = [
             copy.deepcopy(comment) for _ in range(101)
         ]
-        document["comments"]["suggestion-1"][100]["text"] = 7
+        section(document)["comments"]["suggestion-1"][100]["text"] = 7
         errors = self.user_errors(document)
         self.assertTrue(
             any("[200]" in error and "markers" in error for error in errors)
@@ -766,8 +777,8 @@ class ExactContractTests(unittest.TestCase):
 
     def test_user_ownership_and_ids_are_exact(self) -> None:
         wrong_owner = valid_user()
-        wrong_owner["suggestions"]["cell_type:T"][0]["proposedBy"] = "ghid_7"
-        wrong_owner["comments"]["suggestion-1"][0]["authorUsername"] = "ghid_7"
+        section(wrong_owner)["suggestions"]["cell_type:T"][0]["proposedBy"] = "ghid_7"
+        section(wrong_owner)["comments"]["suggestion-1"][0]["authorUsername"] = "ghid_7"
         errors = self.user_errors(wrong_owner)
         self.assertTrue(any("proposedBy must equal file identity" in e for e in errors))
         self.assertTrue(
@@ -775,18 +786,23 @@ class ExactContractTests(unittest.TestCase):
         )
 
         duplicate = valid_user()
-        duplicate["suggestions"]["cell_type:B"] = [
-            copy.deepcopy(duplicate["suggestions"]["cell_type:T"][0])
+        section(duplicate)["suggestions"]["cell_type:B"] = [
+            copy.deepcopy(section(duplicate)["suggestions"]["cell_type:T"][0])
         ]
         errors = self.user_errors(duplicate)
-        self.assertTrue(any("must be globally unique" in e for e in errors))
+        self.assertTrue(any("must be unique in its dataset" in e for e in errors))
+
+        # The same id in two datasets names two suggestions.
+        two_datasets = valid_user()
+        two_datasets["datasets"]["other"] = copy.deepcopy(section(two_datasets))
+        self.assertEqual(self.user_errors(two_datasets), [])
 
     def test_repository_suggestion_ids_cannot_cross_owners_or_buckets(self) -> None:
         first = valid_user()
         second = valid_user()
         second["username"] = "ghid_7"
         second["githubUserId"] = 7
-        second["suggestions"]["cell_type:T"][0]["proposedBy"] = "ghid_7"
+        section(second)["suggestions"]["cell_type:T"][0]["proposedBy"] = "ghid_7"
         errors = validator.validate_user_repository(
             [
                 (pathlib.Path("annotations/users/ghid_42.json"), first),
@@ -799,11 +815,11 @@ class ExactContractTests(unittest.TestCase):
 
     def test_blank_markers_and_text_lengths_are_checked(self) -> None:
         blank = valid_user()
-        blank["suggestions"]["cell_type:T"][0]["markers"] = ["   "]
+        section(blank)["suggestions"]["cell_type:T"][0]["markers"] = ["   "]
         self.assertTrue(any("must match pattern" in e for e in self.user_errors(blank)))
 
         edge_whitespace = valid_user()
-        edge_whitespace["suggestions"]["cell_type:T"][0]["markers"] = [" CD3D"]
+        section(edge_whitespace)["suggestions"]["cell_type:T"][0]["markers"] = [" CD3D"]
         self.assertTrue(
             any(
                 "must match pattern" in error
@@ -814,25 +830,26 @@ class ExactContractTests(unittest.TestCase):
         # Counts are bounded by the 1 MB file, not by a fixed item cap: a
         # long marker list is accepted.
         many_markers = valid_user()
-        many_markers["suggestions"]["cell_type:T"][0]["markers"] = [
+        section(many_markers)["suggestions"]["cell_type:T"][0]["markers"] = [
             f"G{index}" for index in range(5_000)
         ]
         self.assertEqual(self.user_errors(many_markers), [])
 
-        # A bucket is `field:category` as the exporters write them, which
-        # carry no length limit, so a long category label can be annotated.
+        # A bucket is `field:category`, named by the dataset's obs column and
+        # category, which carry no length limit, so a long category label can
+        # be annotated.
         long_bucket = valid_user()
-        long_bucket["suggestions"]["cell_type:" + "T" * 5_000] = long_bucket[
-            "suggestions"
-        ].pop("cell_type:T")
+        section(long_bucket)["suggestions"]["cell_type:" + "T" * 5_000] = section(
+            long_bucket
+        )["suggestions"].pop("cell_type:T")
         self.assertEqual(self.user_errors(long_bucket), [])
 
         unicode_boundary = valid_user()
-        unicode_boundary["suggestions"]["cell_type:T"][0]["label"] = "😀" * 120
+        section(unicode_boundary)["suggestions"]["cell_type:T"][0]["label"] = "😀" * 120
         self.assertEqual(self.user_errors(unicode_boundary), [])
 
         unicode_over_limit = valid_user()
-        unicode_over_limit["suggestions"]["cell_type:T"][0]["label"] = "😀" * 121
+        section(unicode_over_limit)["suggestions"]["cell_type:T"][0]["label"] = "😀" * 121
         self.assertTrue(
             any(
                 "at most 120 character" in error
@@ -976,9 +993,9 @@ class ExactContractTests(unittest.TestCase):
         self,
     ) -> None:
         document = valid_user()
-        suggestion = document["suggestions"].pop("cell_type:T")[0]
-        document["suggestions"]["fk~celltype%3Acoarse:T:activated"] = [suggestion]
-        document["deletedSuggestions"] = {
+        suggestion = section(document)["suggestions"].pop("cell_type:T")[0]
+        section(document)["suggestions"]["fk~celltype%3Acoarse:T:activated"] = [suggestion]
+        section(document)["deletedSuggestions"] = {
             "fk~celltype%3Acoarse:T:activated": ["suggestion-old"]
         }
         self.assertEqual(self.user_errors(document), [])
@@ -1104,20 +1121,20 @@ class ExactContractTests(unittest.TestCase):
 
     def test_non_delimiter_colons_and_encoded_text_remain_valid(self) -> None:
         document = valid_user()
-        suggestion = document["suggestions"]["cell_type:T"][0]
+        suggestion = section(document)["suggestions"]["cell_type:T"][0]
         suggestion["id"] = "suggestion%3A1"
         suggestion["label"] = "T: activated"
         suggestion["ontologyId"] = "CL:0000084"
-        document["votes"] = {"suggestion%3A1": "up"}
-        document["comments"] = {
+        section(document)["votes"] = {"suggestion%3A1": "up"}
+        section(document)["comments"] = {
             "suggestion%3A1": [
                 {
-                    **document["comments"]["suggestion-1"][0],
+                    **section(document)["comments"]["suggestion-1"][0],
                     "id": "comment:1",
                 }
             ]
         }
-        document["deletedSuggestions"] = {
+        section(document)["deletedSuggestions"] = {
             "cell_type:T:activated": ["suggestion%3Aold"]
         }
         self.assertEqual(self.user_errors(document), [])
@@ -1140,6 +1157,7 @@ class ExactContractTests(unittest.TestCase):
         cycle = valid_merges()
         cycle["merges"].append(
             {
+                "datasetId": "synthetic",
                 "bucket": "cell_type:T",
                 "fromSuggestionId": "suggestion-2",
                 "intoSuggestionId": "suggestion-1",
@@ -1154,11 +1172,32 @@ class ExactContractTests(unittest.TestCase):
         )
         self.assertTrue(any("contain a cycle" in e for e in errors))
 
+        # The reverse merge in another dataset is another bucket, not a cycle.
+        other_dataset = valid_merges()
+        other_dataset["merges"].append(
+            {
+                "datasetId": "other",
+                "bucket": "cell_type:T",
+                "fromSuggestionId": "suggestion-2",
+                "intoSuggestionId": "suggestion-1",
+                "by": "ghid_99",
+                "at": "2026-07-25T00:00:01Z",
+            }
+        )
+        self.assertEqual(
+            validator.validate_merges(
+                other_dataset,
+                pathlib.Path("annotations/moderation/merges.json"),
+                self.merges_schema,
+            ),
+            [],
+        )
+
     def test_checked_in_schema_identities_are_exact(self) -> None:
         config, user, merges = validator._load_contracts()
         self.assertEqual(
             user["$id"],
-            "https://cellucid.com/contracts/community-annotation/user-v1.schema.json",
+            "https://cellucid.com/contracts/community-annotation/user-v2.schema.json",
         )
         self.assertEqual(
             config["$id"],
@@ -1166,7 +1205,7 @@ class ExactContractTests(unittest.TestCase):
         )
         self.assertEqual(
             merges["$id"],
-            "https://cellucid.com/contracts/community-annotation/merges-v1.schema.json",
+            "https://cellucid.com/contracts/community-annotation/merges-v2.schema.json",
         )
 
     def test_identity_schema_slots_use_true_end_assertions(self) -> None:
@@ -1188,7 +1227,10 @@ class ExactContractTests(unittest.TestCase):
         self.assertEqual(field_slots, (field_pattern,) * 4)
 
         suggestion_id_pattern = r"^[^:\s](?:[^:]*[^:\s])?$(?![\s\S])"
-        user_properties = self.user_schema["properties"]
+        # Everything a contributor writes sits in a dataset's section.
+        user_properties = self.user_schema["properties"]["datasets"][
+            "additionalProperties"
+        ]["properties"]
         suggestion_id_slots = (
             user_properties["suggestions"]["additionalProperties"]["items"][
                 "properties"
@@ -1233,7 +1275,7 @@ class ExactContractTests(unittest.TestCase):
         orcid = r"^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$"
         linkedin = r"^[a-z0-9-]{3,120}$"
         expected_counts = {
-            free_text: 15,
+            free_text: 16,
             utc_date_time: 9,
             github_identity: 3,
             orcid: 1,
@@ -1247,8 +1289,8 @@ class ExactContractTests(unittest.TestCase):
             if schema["pattern"].removesuffix(true_end) in expected_counts
         ]
 
-        self.assertEqual(len(all_slots), 42)
-        self.assertEqual(len(refinement_slots), 29)
+        self.assertEqual(len(all_slots), 43)
+        self.assertEqual(len(refinement_slots), 30)
         self.assertEqual(len(all_slots) - len(refinement_slots), 13)
         self.assertEqual(
             {
@@ -1286,7 +1328,7 @@ class ExactContractTests(unittest.TestCase):
             if schema["pattern"].removesuffix(true_end) in examples
         ]
 
-        self.assertEqual(len(refinement_slots), 29)
+        self.assertEqual(len(refinement_slots), 30)
         for location, schema, normalized in refinement_slots:
             example = examples[normalized]
             self.assertEqual(
@@ -1322,7 +1364,7 @@ class ExactContractTests(unittest.TestCase):
             for location, schema in self.schema_pattern_slots()
             if schema["pattern"].removesuffix(true_end) == free_text
         ]
-        self.assertEqual(len(free_text_slots), 15)
+        self.assertEqual(len(free_text_slots), 16)
 
         for location, schema in free_text_slots:
             maximum = schema["maxLength"]
@@ -1510,11 +1552,11 @@ class CliTests(unittest.TestCase):
             document = valid_user()
             document["updatedAt"] = 123
             document["unknown"] = True
-            item = document["suggestions"]["cell_type:T"][0]
-            document["suggestions"]["cell_type:T"] = [
+            item = section(document)["suggestions"]["cell_type:T"][0]
+            section(document)["suggestions"]["cell_type:T"] = [
                 copy.deepcopy(item) for _ in range(501)
             ]
-            document["suggestions"]["cell_type:T"][500]["label"] = 7
+            section(document)["suggestions"]["cell_type:T"][500]["label"] = 7
             (users / "ghid_999.json").write_text(json.dumps(document), encoding="utf-8")
 
             result = self.run_cli(repository)
@@ -1585,8 +1627,8 @@ class CliTests(unittest.TestCase):
             second = valid_user()
             second["username"] = "ghid_7"
             second["githubUserId"] = 7
-            second["suggestions"]["cell_type:T"][0]["proposedBy"] = "ghid_7"
-            second["comments"]["suggestion-1"][0]["authorUsername"] = "ghid_7"
+            section(second)["suggestions"]["cell_type:T"][0]["proposedBy"] = "ghid_7"
+            section(second)["comments"]["suggestion-1"][0]["authorUsername"] = "ghid_7"
             (users / "ghid_7.json").write_text(json.dumps(second), encoding="utf-8")
             result = self.run_cli(repository)
             self.assertEqual(result.returncode, 1)
@@ -1617,8 +1659,8 @@ if __name__ == "__main__":
 
 
 class NoFabricatedCountLimitsTests(unittest.TestCase):
-    """The schemas carry no item-count caps and no length cap on keys the
-    exporters write (field keys, `field:category` buckets): the 1 MB file is
+    """The schemas carry no item-count caps and no length cap on keys named
+    by the dataset (field keys, `field:category` buckets): the 1 MB file is
     the only bound on how much one contributor file holds."""
 
     def test_schemas_have_no_count_caps(self) -> None:

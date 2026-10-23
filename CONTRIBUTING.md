@@ -25,7 +25,7 @@ Cellucid is split by responsibility:
 |---|---|---|
 | `cellucid` | Web app (UI + state + WebGL rendering) | are changing sign-in, Pull, consensus compilation, or Publish |
 | `cellucid-python` | Python package + CLI + Sphinx docs | are fixing `prepare`/`serve`, or any documentation page for any repository |
-| `cellucid-r` | R package exporter | are changing `cellucid_prepare()` |
+| `cellucid-r` | R package writing the same Cellucid-ready AnnData from R | are changing `cellucid_prepare()` |
 | `cellucid-annotation` (this repo) | Reference annotation layout | are changing a schema, the validator, or the workflow |
 | `cellucid-datasets` | The published demo catalog | are correcting a published generation or its catalog entry |
 | `cellucid-demo-custom-datasets` | Worked example of publishing your own datasets | are changing that guide or its synthetic examples |
@@ -45,7 +45,7 @@ identifiers. They are compared as exact strings by the validator and by the
 viewer, and every repository already validated against them keeps working only
 while they stay byte-identical. Tightening a rule under an existing `$id`
 breaks documents that were valid yesterday. A genuine contract change takes a
-new `-v2` identity instead of editing a published one.
+new versioned identity (the next `-vN`) instead of editing a published one.
 
 Everything the README says about those reservations — the `fk~` field-key
 shape, the `:` delimiter in suggestion ids, the 1,000,000-byte document

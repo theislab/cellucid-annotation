@@ -564,8 +564,27 @@ def validate_user_file(
     orcid = doc.get("orcid")
     if isinstance(orcid, str) and not _is_valid_orcid_id(orcid):
         errors.append(f'{path}: $["orcid"] must be an exact checksum-valid ORCID iD')
+    datasets = doc.get("datasets")
+    if isinstance(datasets, dict):
+        for dataset_id, section in datasets.items():
+            if isinstance(section, dict):
+                errors.extend(
+                    _section_errors(section, path, dataset_id, expected_identity)
+                )
+    return errors
+
+
+def _section_errors(
+    section: Mapping[str, Any],
+    path: pathlib.Path,
+    dataset_id: str,
+    expected_identity: str,
+) -> list[str]:
+    """Invariants of one dataset's section of a user file."""
+    errors: list[str] = []
+    where = f"dataset {dataset_id!r}"
     suggestion_ids: set[str] = set()
-    suggestions = doc.get("suggestions")
+    suggestions = section.get("suggestions")
     if isinstance(suggestions, dict):
         for bucket, values in suggestions.items():
             if not isinstance(values, list):
@@ -577,18 +596,18 @@ def validate_user_file(
                 if isinstance(suggestion_id, str):
                     if suggestion_id in suggestion_ids:
                         errors.append(
-                            f"{path}: suggestion id {suggestion_id!r} at "
-                            f"{bucket!r}[{index}] must be globally unique"
+                            f"{path}: {where}: suggestion id {suggestion_id!r} at "
+                            f"{bucket!r}[{index}] must be unique in its dataset"
                         )
                     suggestion_ids.add(suggestion_id)
                 proposed_by = suggestion.get("proposedBy")
                 if isinstance(proposed_by, str) and proposed_by != expected_identity:
                     errors.append(
-                        f"{path}: suggestion {suggestion_id!r} proposedBy must "
+                        f"{path}: {where}: suggestion {suggestion_id!r} proposedBy must "
                         f"equal file identity {expected_identity!r}"
                     )
 
-    comments = doc.get("comments")
+    comments = section.get("comments")
     if isinstance(comments, dict):
         for suggestion_id, values in comments.items():
             if not isinstance(values, list):
@@ -601,14 +620,14 @@ def validate_user_file(
                 if isinstance(comment_id, str):
                     if comment_id in comment_ids:
                         errors.append(
-                            f"{path}: comment id {comment_id!r} for "
+                            f"{path}: {where}: comment id {comment_id!r} for "
                             f"{suggestion_id!r} at index {index} must be unique"
                         )
                     comment_ids.add(comment_id)
                 author = comment.get("authorUsername")
                 if isinstance(author, str) and author != expected_identity:
                     errors.append(
-                        f"{path}: comment {comment_id!r} authorUsername must "
+                        f"{path}: {where}: comment {comment_id!r} authorUsername must "
                         f"equal file identity {expected_identity!r}"
                     )
     return errors
@@ -617,10 +636,14 @@ def validate_user_file(
 def validate_user_repository(
     documents: Sequence[tuple[pathlib.Path, Mapping[str, Any]]],
 ) -> list[str]:
-    """Validate invariants that span the complete set of exact user files."""
+    """Validate invariants that span the complete set of exact user files.
+
+    A suggestion id names one suggestion of one dataset: two datasets may use
+    the same id, but within a dataset it belongs to one owner and one bucket.
+    """
     errors: list[str] = []
     user_paths: dict[str, pathlib.Path] = {}
-    suggestion_identities: dict[str, tuple[str, str, pathlib.Path]] = {}
+    suggestion_identities: dict[tuple[str, str], tuple[str, str, pathlib.Path]] = {}
 
     for path, document in documents:
         username = document["username"]
@@ -633,26 +656,24 @@ def validate_user_repository(
         else:
             user_paths[username] = path
 
-        for bucket, suggestions in document["suggestions"].items():
-            for index, suggestion in enumerate(suggestions):
-                suggestion_id = suggestion["id"]
-                proposed_by = suggestion["proposedBy"]
-                previous = suggestion_identities.get(suggestion_id)
-                if previous is not None:
-                    previous_bucket, previous_owner, previous_path = previous
-                    if previous_bucket != bucket or previous_owner != proposed_by:
-                        errors.append(
-                            f"{path}: suggestion id {suggestion_id!r} at "
-                            f"{bucket!r}[{index}] conflicts with the suggestion "
-                            f"owned by {previous_owner!r} in {previous_bucket!r} "
-                            f"from {previous_path}"
-                        )
-                else:
-                    suggestion_identities[suggestion_id] = (
-                        bucket,
-                        proposed_by,
-                        path,
-                    )
+        for dataset_id, section in document["datasets"].items():
+            for bucket, suggestions in section["suggestions"].items():
+                for index, suggestion in enumerate(suggestions):
+                    key = (dataset_id, suggestion["id"])
+                    proposed_by = suggestion["proposedBy"]
+                    previous = suggestion_identities.get(key)
+                    if previous is not None:
+                        previous_bucket, previous_owner, previous_path = previous
+                        if previous_bucket != bucket or previous_owner != proposed_by:
+                            errors.append(
+                                f"{path}: dataset {dataset_id!r}: suggestion id "
+                                f"{suggestion['id']!r} at {bucket!r}[{index}] "
+                                f"conflicts with the suggestion owned by "
+                                f"{previous_owner!r} in {previous_bucket!r} "
+                                f"from {previous_path}"
+                            )
+                    else:
+                        suggestion_identities[key] = (bucket, proposed_by, path)
     return errors
 
 
@@ -666,14 +687,16 @@ def validate_merges(
     errors = _document_errors(doc, path, contract)
     if errors:
         return errors
-    edges_by_bucket: dict[str, dict[str, str]] = {}
+    # A merge joins two suggestions of one bucket of one dataset; the same
+    # bucket name in another dataset is another bucket.
+    edges_by_bucket: dict[tuple[str, str], dict[str, str]] = {}
     for index, merge in enumerate(doc["merges"]):
         if merge["fromSuggestionId"] == merge["intoSuggestionId"]:
             errors.append(
                 f'{path}: $["merges"][{index}]: fromSuggestionId and '
                 "intoSuggestionId must differ"
             )
-        bucket = merge["bucket"]
+        bucket = (merge["datasetId"], merge["bucket"])
         source = merge["fromSuggestionId"]
         target = merge["intoSuggestionId"]
         bucket_edges = edges_by_bucket.setdefault(bucket, {})
@@ -693,7 +716,8 @@ def validate_merges(
                 current = edges[current]
                 if current in seen:
                     errors.append(
-                        f"{path}: merges contain a cycle in bucket {bucket!r}"
+                        f"{path}: merges contain a cycle in bucket {bucket[1]!r} "
+                        f"of dataset {bucket[0]!r}"
                     )
                     break
                 seen.add(current)
@@ -726,11 +750,11 @@ def _load_contracts() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     )
     _assert_schema_identity(
         user,
-        "https://cellucid.com/contracts/community-annotation/user-v1.schema.json",
+        "https://cellucid.com/contracts/community-annotation/user-v2.schema.json",
     )
     _assert_schema_identity(
         merges,
-        "https://cellucid.com/contracts/community-annotation/merges-v1.schema.json",
+        "https://cellucid.com/contracts/community-annotation/merges-v2.schema.json",
     )
     return config, user, merges
 

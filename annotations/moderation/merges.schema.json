@@ -1,18 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cellucid.com/contracts/community-annotation/merges-v1.schema.json",
+  "$id": "https://cellucid.com/contracts/community-annotation/merges-v2.schema.json",
   "title": "Cellucid Community Annotation Moderation Merges",
   "type": "object",
   "required": ["version", "updatedAt", "merges"],
   "properties": {
-    "version": { "type": "integer", "const": 1 },
+    "version": { "type": "integer", "const": 2 },
     "updatedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
     "merges": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["bucket", "fromSuggestionId", "intoSuggestionId", "by", "at"],
+        "required": ["datasetId", "bucket", "fromSuggestionId", "intoSuggestionId", "by", "at"],
         "properties": {
+          "datasetId": { "type": "string", "minLength": 1, "maxLength": 256, "description": "The dataset whose suggestions this merge joins.", "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
           "bucket": { "type": "string", "minLength": 3, "pattern": "^[^:\\s](?:[^:]*[^:\\s])?:\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
           "fromSuggestionId": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Source suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },
           "intoSuggestionId": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Target suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },

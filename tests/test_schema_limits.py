@@ -36,18 +36,20 @@ APP_ID = "An identifier the app generates (a UUID is 36 characters); 128 holds a
 TEXT = "Per-item contributor text in a shared file; matches ANNOTATION_LIMITS in the web app."
 
 SCHEMA = "annotations/schema.json#/properties"
-SUGGESTION = f"{SCHEMA}/suggestions/additionalProperties/items/properties"
+SECTION = f"{SCHEMA}/datasets/additionalProperties/properties"
+SUGGESTION = f"{SECTION}/suggestions/additionalProperties/items/properties"
 CONFIG = "annotations/config.schema.json#/properties/supportedDatasets/items/properties"
 MERGE = "annotations/moderation/merges.schema.json#/properties/merges/items/properties"
 
 ALLOWLIST: dict[str, tuple[int, str, str]] = {
-    f"{CONFIG}/datasetId:maxLength": (256, "HOST", "A dataset id as the exporters write it; matches the web app."),
+    f"{CONFIG}/datasetId:maxLength": (256, "HOST", "A dataset id, bounded as the web app's annotation wire contract bounds it."),
     f"{CONFIG}/name:maxLength": (120, "HOST", TEXT),
     f"{CONFIG}/annotatableSettings/additionalProperties/properties/threshold:maximum": (
         1,
         "FORMAT",
         "A consensus threshold is a fraction of votes.",
     ),
+    f"{MERGE}/datasetId:maxLength": (256, "HOST", "A dataset id, bounded as the web app's annotation wire contract bounds it."),
     f"{MERGE}/fromSuggestionId:maxLength": (128, "HOST", APP_ID),
     f"{MERGE}/intoSuggestionId:maxLength": (128, "HOST", APP_ID),
     f"{MERGE}/by:maxLength": (64, "PLAT", IDENTITY),
@@ -61,7 +63,7 @@ ALLOWLIST: dict[str, tuple[int, str, str]] = {
     f"{SCHEMA}/login:maxLength": (64, "PLAT", IDENTITY),
     f"{SCHEMA}/displayName:maxLength": (120, "HOST", TEXT),
     f"{SCHEMA}/title:maxLength": (120, "HOST", TEXT),
-    f"{SCHEMA}/datasets/propertyNames:maxLength": (256, "HOST", "A dataset id as the exporters write it; matches the web app."),
+    f"{SCHEMA}/datasets/propertyNames:maxLength": (256, "HOST", "A dataset id, bounded as the web app's annotation wire contract bounds it."),
     f"{SUGGESTION}/id:maxLength": (128, "HOST", APP_ID),
     f"{SUGGESTION}/label:maxLength": (120, "HOST", TEXT),
     f"{SUGGESTION}/ontologyId:maxLength": (64, "HOST", "A CURIE such as CL:0000236; matches the web app."),
@@ -69,12 +71,12 @@ ALLOWLIST: dict[str, tuple[int, str, str]] = {
     f"{SUGGESTION}/markers/items/oneOf/0:maxLength": (64, "HOST", "A gene symbol; matches the web app."),
     f"{SUGGESTION}/markers/items/oneOf/1/properties/gene:maxLength": (64, "HOST", "A gene symbol; matches the web app."),
     f"{SUGGESTION}/proposedBy:maxLength": (64, "PLAT", IDENTITY),
-    f"{SCHEMA}/votes/propertyNames:maxLength": (128, "HOST", APP_ID),
-    f"{SCHEMA}/comments/propertyNames:maxLength": (128, "HOST", APP_ID),
-    f"{SCHEMA}/comments/additionalProperties/items/properties/id:maxLength": (128, "HOST", APP_ID),
-    f"{SCHEMA}/comments/additionalProperties/items/properties/text:maxLength": (500, "HOST", TEXT),
-    f"{SCHEMA}/comments/additionalProperties/items/properties/authorUsername:maxLength": (64, "PLAT", IDENTITY),
-    f"{SCHEMA}/deletedSuggestions/additionalProperties/items:maxLength": (128, "HOST", APP_ID),
+    f"{SECTION}/votes/propertyNames:maxLength": (128, "HOST", APP_ID),
+    f"{SECTION}/comments/propertyNames:maxLength": (128, "HOST", APP_ID),
+    f"{SECTION}/comments/additionalProperties/items/properties/id:maxLength": (128, "HOST", APP_ID),
+    f"{SECTION}/comments/additionalProperties/items/properties/text:maxLength": (500, "HOST", TEXT),
+    f"{SECTION}/comments/additionalProperties/items/properties/authorUsername:maxLength": (64, "PLAT", IDENTITY),
+    f"{SECTION}/deletedSuggestions/additionalProperties/items:maxLength": (128, "HOST", APP_ID),
 }
 
 

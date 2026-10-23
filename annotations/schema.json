@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cellucid.com/contracts/community-annotation/user-v1.schema.json",
+  "$id": "https://cellucid.com/contracts/community-annotation/user-v2.schema.json",
   "title": "Cellucid Community Annotation User File",
   "type": "object",
-  "required": ["version", "username", "githubUserId", "updatedAt", "suggestions", "votes"],
+  "required": ["version", "username", "githubUserId", "updatedAt", "datasets"],
   "properties": {
-    "version": { "type": "integer", "const": 1 },
+    "version": { "type": "integer", "const": 2 },
     "username": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
     "githubUserId": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
     "login": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
@@ -16,104 +16,96 @@
     "updatedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
     "datasets": {
       "type": "object",
-      "description": "Informational per-user dataset access metadata (does not affect voting).",
+      "description": "Everything this contributor wrote, per dataset id: two datasets in one repository can share a field and a category label, so their suggestions, votes, comments and deletions never mix.",
       "propertyNames": { "minLength": 1, "maxLength": 256, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
       "additionalProperties": {
         "type": "object",
-        "required": ["fieldsToAnnotate", "lastAccessedAt"],
+        "required": ["fieldsToAnnotate", "lastAccessedAt", "suggestions", "votes"],
         "properties": {
           "fieldsToAnnotate": {
             "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Exact observation field key. A colon-free key must not use the reserved lowercase fk~...%3A encoding shape.",
-              "pattern": "^(?!fk~[^:]*%3[Aa][^:]*$(?![\\s\\S]))\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])"
-            },
+            "items": { "type": "string", "minLength": 1, "description": "Exact observation field key. A colon-free key must not use the reserved lowercase fk~...%3A encoding shape.", "pattern": "^(?!fk~[^:]*%3[Aa][^:]*$(?![\\s\\S]))\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
             "uniqueItems": true
           },
-          "lastAccessedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" }
+          "lastAccessedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
+          "suggestions": {
+            "type": "object",
+            "description": "Map of bucket keys (<fieldKey>:<categoryLabel>) to suggestion arrays. If fieldKey contains ':', Cellucid encodes it as 'fk~<urlencoded>' (example: fk~celltype%3Acoarse:...).",
+            "propertyNames": { "minLength": 3, "pattern": "^[^:\\s](?:[^:]*[^:\\s])?:\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "label", "proposedBy", "proposedAt"],
+                "properties": {
+                  "id": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },
+                  "label": { "type": "string", "minLength": 1, "maxLength": 120, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+                  "ontologyId": { "type": ["string", "null"], "minLength": 1, "maxLength": 64, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+                  "evidence": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+                  "markers": {
+                    "type": ["array", "null"],
+                    "items": {
+                      "oneOf": [
+                        { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+                        {
+                          "type": "object",
+                          "required": ["gene"],
+                          "properties": {
+                            "gene": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+                            "logFC": { "type": "number" },
+                            "pval": { "type": "number" }
+                          },
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "proposedBy": { "type": "string", "minLength": 6, "maxLength": 64, "pattern": "^ghid_[1-9][0-9]*$(?![\\s\\S])" },
+                  "proposedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
+                  "editedAt": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "votes": {
+            "type": "object",
+            "description": "Map of suggestion ids to vote direction.",
+            "propertyNames": { "minLength": 1, "maxLength": 128, "description": "Suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },
+            "additionalProperties": { "type": "string", "enum": ["up", "down"] }
+          },
+          "comments": {
+            "type": "object",
+            "description": "Map of suggestion ids to user's comments on that suggestion.",
+            "propertyNames": { "minLength": 1, "maxLength": 128, "description": "Suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "text", "authorUsername", "createdAt"],
+                "properties": {
+                  "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+                  "text": { "type": "string", "minLength": 1, "maxLength": 500, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+                  "authorUsername": { "type": "string", "minLength": 6, "maxLength": 64, "pattern": "^ghid_[1-9][0-9]*$(?![\\s\\S])" },
+                  "createdAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
+                  "editedAt": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "deletedSuggestions": {
+            "type": "object",
+            "description": "Map of bucket keys (<fieldKey>:<categoryLabel>) to suggestion ids deleted by the proposer. If fieldKey contains ':', Cellucid encodes it as 'fk~<urlencoded>' (example: fk~celltype%3Acoarse:...).",
+            "propertyNames": { "minLength": 3, "pattern": "^[^:\\s](?:[^:]*[^:\\s])?:\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
+            "additionalProperties": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },
+              "uniqueItems": true
+            }
+          }
         },
         "additionalProperties": false
-      }
-    },
-    "suggestions": {
-      "type": "object",
-      "description": "Map of bucket keys (<fieldKey>:<categoryLabel>) to suggestion arrays. If fieldKey contains ':', Cellucid encodes it as 'fk~<urlencoded>' (example: fk~celltype%3Acoarse:...).",
-      "propertyNames": { "minLength": 3, "pattern": "^[^:\\s](?:[^:]*[^:\\s])?:\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
-      "additionalProperties": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": ["id", "label", "proposedBy", "proposedAt"],
-          "properties": {
-            "id": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },
-            "label": { "type": "string", "minLength": 1, "maxLength": 120, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
-            "ontologyId": { "type": ["string", "null"], "minLength": 1, "maxLength": 64, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
-            "evidence": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
-            "markers": {
-              "type": ["array", "null"],
-              "items": {
-                "oneOf": [
-                  { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
-                  {
-                    "type": "object",
-                    "required": ["gene"],
-                    "properties": {
-                      "gene": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
-                      "logFC": { "type": "number" },
-                      "pval": { "type": "number" }
-                    },
-                    "additionalProperties": false
-                  }
-                ]
-              }
-            },
-            "proposedBy": { "type": "string", "minLength": 6, "maxLength": 64, "pattern": "^ghid_[1-9][0-9]*$(?![\\s\\S])" },
-            "proposedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
-            "editedAt": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" }
-          },
-          "additionalProperties": false
-        }
-      }
-    },
-    "votes": {
-      "type": "object",
-      "description": "Map of suggestion ids to vote direction.",
-      "propertyNames": { "minLength": 1, "maxLength": 128, "description": "Suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },
-      "additionalProperties": {
-        "type": "string",
-        "enum": ["up", "down"]
-      }
-    },
-    "comments": {
-      "type": "object",
-      "description": "Map of suggestion ids to user's comments on that suggestion.",
-      "propertyNames": { "minLength": 1, "maxLength": 128, "description": "Suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },
-      "additionalProperties": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": ["id", "text", "authorUsername", "createdAt"],
-          "properties": {
-            "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
-            "text": { "type": "string", "minLength": 1, "maxLength": 500, "pattern": "^\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
-            "authorUsername": { "type": "string", "minLength": 6, "maxLength": 64, "pattern": "^ghid_[1-9][0-9]*$(?![\\s\\S])" },
-            "createdAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
-            "editedAt": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" }
-          },
-          "additionalProperties": false
-        }
-      }
-    },
-    "deletedSuggestions": {
-      "type": "object",
-      "description": "Map of bucket keys (<fieldKey>:<categoryLabel>) to suggestion ids deleted by the proposer. If fieldKey contains ':', Cellucid encodes it as 'fk~<urlencoded>' (example: fk~celltype%3Acoarse:...).",
-      "propertyNames": { "minLength": 3, "pattern": "^[^:\\s](?:[^:]*[^:\\s])?:\\S(?:[\\s\\S]*\\S)?$(?![\\s\\S])" },
-      "additionalProperties": {
-        "type": "array",
-        "items": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Suggestion id; ':' is reserved as the bucket/id delimiter.", "pattern": "^[^:\\s](?:[^:]*[^:\\s])?$(?![\\s\\S])" },
-        "uniqueItems": true
       }
     }
   },
