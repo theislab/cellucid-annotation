@@ -81,7 +81,10 @@ working copy.
 ### Consensus model
 
 Annotation is scoped to one dataset id, one categorical observation field, and
-one category within that field. That combination is a **bucket**. Users propose
+one category within that field. That combination is a **bucket**. No file here
+names a cell, so the same files serve every way the dataset is opened: all of
+its cells or a subsample of them, and a file stored in any cell order (files
+Cellucid writes store their cells in priority order). Users propose
 labels inside a bucket and cast `up` or `down` votes on those suggestions.
 
 For each bucket, Cellucid counts unique users who cast any vote, computes the
