@@ -1,0 +1,68 @@
+# The template repository's own test suite (not part of the annotation layout).
+#
+# Annotation repositories copy only validate.yml; this workflow runs the
+# contract tests of theislab/cellucid-annotation itself on every supported
+# Python and platform: the validator's rules, the shared accept/reject corpus
+# it shares with the Cellucid web app, the schemas' bounds, and the README and
+# governance files at the repository root.
+name: Template Tests
+
+on:
+  push:
+    paths:
+      - ".gitattributes"
+      - ".github/workflows/tests.yml"
+      - ".github/workflows/validate.yml"
+      - ".gitignore"
+      - "CITATION.cff"
+      - "CODE_OF_CONDUCT.md"
+      - "CONTRIBUTING.md"
+      - "LICENSE"
+      - "README.md"
+      - "SECURITY.md"
+      - "SUPPORT.md"
+      - "annotations/**"
+      - "scripts/**"
+      - "tests/**"
+  pull_request:
+    paths:
+      - ".gitattributes"
+      - ".github/workflows/tests.yml"
+      - ".github/workflows/validate.yml"
+      - ".gitignore"
+      - "CITATION.cff"
+      - "CODE_OF_CONDUCT.md"
+      - "CONTRIBUTING.md"
+      - "LICENSE"
+      - "README.md"
+      - "SECURITY.md"
+      - "SUPPORT.md"
+      - "annotations/**"
+      - "scripts/**"
+      - "tests/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.10", "3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Test exact annotation contracts
+        run: python -m unittest discover -s tests -v
+      - name: Check the shared contract corpus is current
+        run: python scripts/generate_contract_corpus.py --check
+      - name: Validate repository inputs
+        run: python scripts/validate_user_files.py

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "supportedDatasets": [
+    {
+      "datasetId": "example-dataset-id",
+      "name": "Example dataset",
+      "fieldsToAnnotate": ["cell_type", "batch"],
+      "annotatableSettings": {
+        "cell_type": { "minAnnotators": 1, "threshold": 0.5 },
+        "batch": { "minAnnotators": 1, "threshold": 0.5 }
+      },
+      "closedFields": []
+    }
+  ]
+}

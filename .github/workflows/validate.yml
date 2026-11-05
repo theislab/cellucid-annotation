@@ -1,0 +1,35 @@
+# Validate the annotation repository's inputs (reads only, writes nothing).
+#
+# This is the workflow an annotation repository copies. It runs one command,
+# `python scripts/validate_user_files.py`, which checks that:
+# - the three schemas are the canonical ones, byte for byte (Cellucid accepts
+#   a repository only then);
+# - `annotations/config.json` is valid;
+# - every entry under `annotations/users/` is a valid `ghid_<id>.json` user
+#   file (or the `.gitkeep` sentinel), and no path is a case variant of the
+#   layout's paths;
+# - the optional author-only `annotations/moderation/merges.json` is valid.
+#
+# It needs nothing but those files: no tests, README or other repository file.
+# The template repository's own test suite runs from tests.yml, which is not
+# copied.
+name: Validate Annotation Files
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate annotation files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Validate repository inputs
+        run: python scripts/validate_user_files.py

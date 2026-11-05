@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cellucid.com/contracts/community-annotation/user-v3.schema.json",
+  "title": "Cellucid Community Annotation User File",
+  "description": "Whitespace is the class [\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff], the union of ECMAScript \\s and Python str.isspace(); text is exact when its first and last characters are outside it. No text or count has a length limit: the only size bound is the file, at most 1,000,000 UTF-8 bytes.",
+  "type": "object",
+  "required": ["version", "username", "githubUserId", "updatedAt", "datasets"],
+  "properties": {
+    "version": { "type": "integer", "const": 3, "maximum": 9007199254740991 },
+    "username": { "type": "string", "pattern": "^ghid_[1-9][0-9]*$(?![\\s\\S])" },
+    "githubUserId": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "login": { "type": "string", "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+    "displayName": { "type": "string", "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+    "title": { "type": "string", "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+    "orcid": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$(?![\\s\\S])" },
+    "linkedin": { "type": "string", "pattern": "^[a-z0-9-]{3,}$(?![\\s\\S])" },
+    "updatedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
+    "datasets": {
+      "type": "object",
+      "description": "Everything this contributor wrote, per dataset id: two datasets in one repository can share a field and a category label, so their suggestions, votes, comments and deletions never mix.",
+      "propertyNames": { "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["fieldsToAnnotate", "lastAccessedAt", "suggestions", "votes"],
+        "properties": {
+          "fieldsToAnnotate": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "description": "Exact observation field key. A colon-free key must not use the reserved lowercase fk~...%3A encoding shape.", "pattern": "^(?!fk~[^:]*%3[Aa][^:]*$(?![\\s\\S]))[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+            "uniqueItems": true
+          },
+          "lastAccessedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
+          "suggestions": {
+            "type": "object",
+            "description": "Map of bucket keys to suggestion arrays. Bucket key <fieldKey>:<categoryLabel>. If fieldKey contains ':', Cellucid encodes it as 'fk~<urlencoded>' (example: fk~celltype%3Acoarse:...).",
+            "propertyNames": { "minLength": 3, "pattern": "^[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[^:]*[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?:[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "label", "proposedBy", "proposedAt"],
+                "properties": {
+                  "id": { "type": "string", "description": "Suggestion id: the proposer's ghid_<n>, '_', then exact text without ':' (':' is reserved as the bucket/id delimiter). It starts with this suggestion's proposedBy and '_'.", "pattern": "^ghid_[1-9][0-9]*_[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[^:]*[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+                  "label": { "type": "string", "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+                  "ontologyId": { "type": ["string", "null"], "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+                  "evidence": { "type": ["string", "null"], "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+                  "markers": {
+                    "type": ["array", "null"],
+                    "items": {
+                      "oneOf": [
+                        { "type": "string", "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+                        {
+                          "type": "object",
+                          "required": ["gene"],
+                          "properties": {
+                            "gene": { "type": "string", "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+                            "logFC": { "type": "number" },
+                            "pval": { "type": "number" }
+                          },
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "proposedBy": { "type": "string", "pattern": "^ghid_[1-9][0-9]*$(?![\\s\\S])" },
+                  "proposedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
+                  "editedAt": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "votes": {
+            "type": "object",
+            "description": "Map of suggestion ids (anyone's) to vote direction.",
+            "propertyNames": { "description": "Suggestion id: the proposer's ghid_<n>, '_', then exact text without ':' (':' is reserved as the bucket/id delimiter).", "pattern": "^ghid_[1-9][0-9]*_[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[^:]*[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+            "additionalProperties": { "type": "string", "enum": ["up", "down"] }
+          },
+          "comments": {
+            "type": "object",
+            "description": "Map of suggestion ids (anyone's) to this contributor's comments on that suggestion.",
+            "propertyNames": { "description": "Suggestion id: the proposer's ghid_<n>, '_', then exact text without ':' (':' is reserved as the bucket/id delimiter).", "pattern": "^ghid_[1-9][0-9]*_[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[^:]*[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "text", "authorUsername", "createdAt"],
+                "properties": {
+                  "id": { "type": "string", "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+                  "text": { "type": "string", "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+                  "authorUsername": { "type": "string", "pattern": "^ghid_[1-9][0-9]*$(?![\\s\\S])" },
+                  "createdAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
+                  "editedAt": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "deletedSuggestions": {
+            "type": "object",
+            "description": "Map of bucket keys to ids of suggestions this contributor deleted (their own: each starts with this file's username and '_'). Bucket key <fieldKey>:<categoryLabel>. If fieldKey contains ':', Cellucid encodes it as 'fk~<urlencoded>' (example: fk~celltype%3Acoarse:...).",
+            "propertyNames": { "minLength": 3, "pattern": "^[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[^:]*[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?:[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+            "additionalProperties": {
+              "type": "array",
+              "items": { "type": "string", "description": "Suggestion id: the proposer's ghid_<n>, '_', then exact text without ':' (':' is reserved as the bucket/id delimiter).", "pattern": "^ghid_[1-9][0-9]*_[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[^:]*[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+              "uniqueItems": true
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

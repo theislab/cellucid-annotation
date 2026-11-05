@@ -1,0 +1,9 @@
+# Python bytecode / cache (created when running scripts locally)
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.benchmarks/
+
+.DS_Store

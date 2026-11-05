@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cellucid.com/contracts/community-annotation/merges-v3.schema.json",
+  "title": "Cellucid Community Annotation Moderation Merges",
+  "description": "Whitespace is the class [\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff], the union of ECMAScript \\s and Python str.isspace(); text is exact when its first and last characters are outside it. No text or count has a length limit: the only size bound is the file, at most 1,000,000 UTF-8 bytes.",
+  "type": "object",
+  "required": ["version", "updatedAt", "merges"],
+  "properties": {
+    "version": { "type": "integer", "const": 3, "maximum": 9007199254740991 },
+    "updatedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
+    "merges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["datasetId", "bucket", "fromSuggestionId", "intoSuggestionId", "by", "at"],
+        "properties": {
+          "datasetId": { "type": "string", "minLength": 1, "description": "The dataset whose suggestions this merge joins.", "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+          "bucket": { "type": "string", "minLength": 3, "pattern": "^[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[^:]*[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?:[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+          "fromSuggestionId": { "type": "string", "description": "Source suggestion id: the proposer's ghid_<n>, '_', then exact text without ':' (':' is reserved as the bucket/id delimiter).", "pattern": "^ghid_[1-9][0-9]*_[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[^:]*[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+          "intoSuggestionId": { "type": "string", "description": "Target suggestion id: the proposer's ghid_<n>, '_', then exact text without ':' (':' is reserved as the bucket/id delimiter).", "pattern": "^ghid_[1-9][0-9]*_[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[^:]*[^:\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+          "by": { "type": "string", "pattern": "^ghid_[1-9][0-9]*$(?![\\s\\S])" },
+          "at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" },
+          "note": { "type": ["string", "null"], "minLength": 1, "pattern": "^[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff](?:[\\s\\S]*[^\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff])?$(?![\\s\\S])" },
+          "editedAt": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$(?![\\s\\S])", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
