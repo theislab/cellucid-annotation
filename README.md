@@ -46,7 +46,7 @@ the governance files the Cellucid repositories carry — `LICENSE`,
 `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `CODE_OF_CONDUCT.md`,
 `CITATION.cff` — plus `.gitignore`. They govern this repository; an annotation
 repository built from it does not need them. Copy the layout files listed above
-and give your own repository its own licence and policies.
+and give your own repository its own license and policies.
 
 The three schemas declare these identities:
 
@@ -66,7 +66,7 @@ repository is accepted only when its three schema files are exactly the ones
 published here, byte for byte (the same Git blob). Cellucid reads their blob ids
 from the repository's Git tree, so it never downloads them; when one differs, it
 names the file and asks you to copy it from this repository. Do not edit the
-schemas, and do not "normalise" their text: copy them unchanged.
+schemas, and do not "normalize" their text: copy them unchanged.
 
 ## How collaboration works
 
@@ -102,10 +102,14 @@ For each bucket, Cellucid counts unique users who cast any vote, computes the
 leading suggestion's net votes (`up - down`), and reports
 `confidence = net votes / unique voters`.
 
-- **Pending**: fewer unique voters than the field's `minAnnotators`
+- **Pending**: no one voted yet, or fewer unique voters than the field's
+  `minAnnotators`
 - **Consensus**: the leader is not tied and its confidence meets or exceeds the
   field's `threshold`
 - **Disputed**: every other result, including a tie
+
+Suggestions are ranked by net votes, then by upvotes: a tie is equal net votes
+and equal upvotes.
 
 The exact settings are owned per field in `annotations/config.json`.
 `minAnnotators` is a whole number of at least 0 (up to
@@ -120,7 +124,7 @@ can change the derived status without changing anyone's votes.
    `annotations/` (with `annotations/users/.gitkeep`),
    `scripts/validate_user_files.py`, `.github/workflows/validate.yml` and
    `.gitattributes` — into its root, at the same paths. Copy the schemas
-   unchanged. Leave this repository's tests, licence and policy files behind
+   unchanged. Leave this repository's tests, license and policy files behind
    and give yours its own.
 2. Configure `annotations/config.json` to match your dataset id(s) and annotatable field(s).
    - The checked-in `example-dataset-id` / `cell_type` / `batch` entry is a
