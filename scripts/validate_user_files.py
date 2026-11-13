@@ -193,13 +193,6 @@ def parse_annotation_bytes(raw: bytes) -> Any:
         raise JsonInputError(str(error)) from error
 
 
-def read_annotation_json(path: pathlib.Path) -> Any:
-    """Read one active annotation file as strict UTF-8 JSON."""
-    with path.open("rb") as handle:
-        raw = handle.read(ANNOTATION_FILE_MAX_UTF8_BYTES + 1)
-    return parse_annotation_bytes(raw)
-
-
 def fail(errors: Sequence[str]) -> int:
     """Print validation errors to stderr and return the CLI failure code."""
     for error in errors:

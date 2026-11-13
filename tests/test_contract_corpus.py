@@ -3,15 +3,13 @@
 ``tests/fixtures/contract-corpus.json`` is written by
 ``scripts/generate_contract_corpus.py``. The Cellucid web app keeps a
 byte-identical copy (``tests/fixtures/community-annotation-contract-corpus.json``
-in theislab/cellucid) and pins the same SHA-256, so the browser and this
-validator must give every case the same verdict. Update the digest here and
-there together.
+in theislab/cellucid, whose tests compare it with this file), so the browser
+and this validator must give every case the same verdict.
 """
 
 from __future__ import annotations
 
 import base64
-import hashlib
 import importlib.util
 import json
 import pathlib
@@ -23,7 +21,6 @@ from typing import Any
 
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[1]
 FIXTURE = REPOSITORY_ROOT / "tests" / "fixtures" / "contract-corpus.json"
-FIXTURE_SHA256 = "81239badc82ce335ea3cd82c1685baf5b4ce64021e4e15cc40935156d00508ba"
 
 SPEC = importlib.util.spec_from_file_location(
     "validate_user_files", REPOSITORY_ROOT / "scripts" / "validate_user_files.py"
@@ -47,9 +44,6 @@ class ContractCorpusTests(unittest.TestCase):
         cls.raw = FIXTURE.read_bytes()
         cls.corpus = json.loads(cls.raw)
         cls.schemas = validator.load_contracts()
-
-    def test_corpus_is_the_pinned_one(self) -> None:
-        self.assertEqual(hashlib.sha256(self.raw).hexdigest(), FIXTURE_SHA256)
 
     def test_corpus_is_generated_from_the_current_sources(self) -> None:
         result = subprocess.run(

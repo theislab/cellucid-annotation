@@ -6,9 +6,9 @@ texts and a list of files, each with the verdict the contract gives it. This
 repository's validator (``scripts/validate_user_files.py``) and the Cellucid
 web app (``assets/js/app/community-annotations/wire-contract.js``, which keeps
 a byte-identical copy at ``tests/fixtures/community-annotation-contract-corpus.json``)
-must both give every case its verdict; both test suites pin the corpus by
-SHA-256. Every verdict is stated here by hand: it is the contract, not a
-recording of either validator.
+must both give every case its verdict; the web app's test suite compares its
+copy with this file. Every verdict is stated here by hand: it is the contract,
+not a recording of either validator.
 
 Usage::
 
@@ -29,7 +29,6 @@ from __future__ import annotations
 import argparse
 import base64
 import copy
-import hashlib
 import importlib.util
 import json
 import pathlib
@@ -760,12 +759,11 @@ def main() -> int:
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(content)
-    digest = hashlib.sha256(content).hexdigest()
     if stale:
         for target in stale:
             print(f"{target}: stale; run python scripts/generate_contract_corpus.py", file=sys.stderr)
         return 1
-    print(f"{len(cases)} cases, sha256 {digest}")
+    print(f"{len(cases)} cases")
     return 0
 
 

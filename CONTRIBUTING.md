@@ -36,8 +36,8 @@ validator here, and the viewer's wire contract in
 changes in one has to change in the other, in the same pass, or a repository
 this validator accepts is one the browser rejects. One accept/reject corpus,
 `tests/fixtures/contract-corpus.json` (written by
-`scripts/generate_contract_corpus.py`, with a byte-identical copy and the same
-SHA-256 pin in the web app's test suite), holds both to the same verdict on
+`scripts/generate_contract_corpus.py`, with a byte-identical copy in the web
+app's test suite, which compares the two), holds both to the same verdict on
 every case: a rule change adds its cases there and regenerates it.
 
 ---
@@ -81,6 +81,17 @@ every input document beside them.
 A new rule needs a test that fails without it. The suite is written as exact
 contracts rather than examples — it asserts the precise message and the precise
 boundary — so a rule added without one is a rule nothing holds in place.
+
+---
+
+## Comments say what the code does
+
+A comment in a script, a schema description, a test or a workflow says what the
+code does and why it must be so, in the present tense: the rule it keeps, the
+failure it prevents. It holds no CI run number, no finding, audit or plan id, no
+date of our own work, no story of what was tried, and no path into a repository
+the reader cannot open. A rule's reason goes to `README.md` when a reader of the
+layout needs it, and the history of a change goes to its commit message.
 
 ---
 
